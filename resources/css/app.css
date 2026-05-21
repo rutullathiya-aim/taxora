@@ -1,0 +1,172 @@
+@import 'tailwindcss';
+@import '../../vendor/livewire/flux/dist/flux.css';
+
+@source "../views";
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../vendor/livewire/flux-pro/stubs/**/*.blade.php';
+@source '../../vendor/livewire/flux/stubs/**/*.blade.php';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+    --font-sans: Golos Text, sans-serif;
+
+    --color-zinc-50: var(--color-slate-50);
+    --color-zinc-100: var(--color-slate-100);
+    --color-zinc-200: var(--color-slate-200);
+    --color-zinc-300: var(--color-slate-300);
+    --color-zinc-400: var(--color-slate-400);
+    --color-zinc-500: var(--color-slate-500);
+    --color-zinc-600: var(--color-slate-600);
+    --color-zinc-700: var(--color-slate-700);
+    --color-zinc-800: var(--color-slate-800);
+    --color-zinc-900: var(--color-slate-900);
+    --color-zinc-950: var(--color-slate-950);
+
+    --color-accent: var(--color-red-500);
+    --color-accent-content: var(--color-red-600);
+    --color-accent-foreground: var(--color-white);
+    --color-accent-content-background: var(--color-red-50);
+}
+
+@layer theme {
+    .dark {
+        --color-accent: var(--color-red-500);
+        --color-accent-content: var(--color-red-400);
+        --color-accent-foreground: var(--color-white);
+    }
+}
+
+@layer base {
+
+    *,
+    ::after,
+    ::before,
+    ::backdrop,
+    ::file-selector-button {
+        border-color: var(--color-gray-200, currentColor);
+    }
+}
+
+[data-flux-field] {
+    @apply grid gap-2;
+}
+
+[data-flux-label] {
+    @apply !mb-0 !leading-tight;
+}
+
+input:focus[data-flux-control],
+textarea:focus[data-flux-control],
+select:focus[data-flux-control] {
+    @apply outline-hidden ring-2 ring-accent ring-offset-2 ring-offset-accent-foreground;
+}
+
+@layer components {
+
+    /* ==========  Sidebar ========== */
+    .sidebar-nav [data-flux-navlist-item] {
+        @apply !h-9 !text-zinc-900 !px-1
+    }
+
+    .dark .sidebar-nav [data-flux-navlist-item] {
+        @apply !text-white
+    }
+
+    .sidebar-nav [data-flux-navlist-item][data-current], .sidebar-nav [data-flux-navlist-item]:hover {
+        @apply !text-accent-content !bg-accent-content-background
+    }
+
+    .dark .sidebar-nav [data-flux-navlist-item][data-current], .dark .sidebar-nav [data-flux-navlist-item]:hover {
+        @apply !text-accent !bg-accent/20
+    }
+
+    .sidebar-nav [data-flux-navlist-item] .relative {
+        @apply size-7 flex items-center justify-center bg-zinc-100 rounded-md
+    }
+
+    .dark .sidebar-nav [data-flux-navlist-item] .relative {
+        @apply bg-zinc-800
+    }
+
+    .sidebar-nav [data-flux-navlist-item][data-current] .relative, .sidebar-nav [data-flux-navlist-item]:hover .relative {
+        @apply bg-accent-content text-white
+    }
+
+    .dark .sidebar-nav [data-flux-navlist-item][data-current] .relative, .sidebar-nav [data-flux-navlist-item]:hover .relative {
+        @apply bg-accent
+    }
+
+    /* ==========  Button ========== */
+    button {
+        cursor: pointer;
+    }
+
+    /* ==========  Table ========== */
+    [data-flux-table] {
+        @apply border
+    }
+
+    .dark [data-flux-table] {
+        @apply !border-transparent
+    }
+
+    [data-flux-columns] {
+        @apply bg-zinc-100 !text-zinc-800
+    }
+
+    .dark [data-flux-columns] {
+        @apply bg-transparent !text-white
+    }
+
+    [data-flux-column]>div {
+        @apply !font-semibold
+    }
+
+    [data-flux-cell] {
+        @apply !text-zinc-700
+    }
+
+    .dark [data-flux-cell] {
+        @apply !text-zinc-300
+    }
+
+    [data-flux-row]>[data-flux-cell]:first-child, [data-flux-columns]>tr>[data-flux-column]:first-child {
+        @apply !ps-3;
+    }
+
+    [data-flux-row]>[data-flux-cell]:last-child,
+    [data-flux-columns]>tr>[data-flux-column]:last-child {
+        @apply !pe-3;
+    }
+
+    /* ==========  Pagination ========== */
+    [aria-current="page"]>span {
+        background-color: var(--color-accent) !important;
+        border-color: var(--color-accent) !important;
+        color: var(--color-accent-foreground) !important;
+    }
+
+    /* ========== Card ========== */
+    .dark [data-flux-card] {
+        @apply !bg-white/5 !border-transparent
+    }
+
+    /* ========== Tab ========== */
+    .tab {
+        @apply flex gap-4 h-10 border-b border-zinc-800/10 dark:border-white/20
+    }
+
+    .tab button {
+        @apply flex whitespace-nowrap gap-2 items-center px-2 -mb-px border-b-[2px] border-transparent text-sm font-medium text-zinc-400 dark:text-white/50 data-selected:border-(--color-accent-content) data-selected:text-(--color-accent-content) hover:data-selected:text-(--color-accent-content) hover:text-zinc-800 dark:hover:text-white [&[disabled]]:opacity-50 dark:[&[disabled]]:opacity-75 [&[disabled]]:cursor-default [&[disabled]]:pointer-events-none
+    }
+
+    /* ========== Profile Dropdown ========== */
+    [data-flux-profile]>span {
+        @apply hidden lg:inline;
+    }
+
+    [data-flux-profile]>.ms-auto {
+        @apply hidden lg:flex;
+    }
+}

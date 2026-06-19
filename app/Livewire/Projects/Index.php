@@ -1,75 +1,128 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Livewire\Projects;
 
-use App\Models\Client;
+use App\Enums\ProjectListStatus;
+use App\Enums\ProjectSort;
+use App\Filters\ProjectFilters;
+use App\Livewire\Base\BaseTableComponent;
 use App\Models\Project;
-use App\Models\Service;
-use Flux\Flux;
+use App\Models\User;
+use App\Queries\ProjectQuery;
+use App\Services\ProjectManager;
+use App\Stats\ProjectStats;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\View\View;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\Attributes\Url;
 
-class Index extends Component
+class Index extends BaseTableComponent
 {
-    use WithPagination;
+    use HasProjectActions;
 
+    private ProjectQuery $query;
+
+    private ProjectStats $projectStats;
+
+    protected ProjectManager $projectManager;
+
+    #[Url(except: '')]
     public string $search = '';
 
-    public string $statusFilter = 'all';
+    #[Url(except: ProjectSort::Latest->value)]
+    public string $sortBy = ProjectSort::Latest->value;
 
-    public string $sortBy = 'latest';
+    #[Url(except: ProjectListStatus::Active->value)]
+    public string $status = ProjectListStatus::Active->value;
 
-    #[On('project-saved')]
-    public function refreshProjects(): void
+    public function boot(ProjectQuery $query, ProjectStats $stats, ProjectManager $projectManager): void
     {
-        // Re-render
+        $this->query = $query;
+        $this->projectStats = $stats;
+        $this->projectManager = $projectManager;
     }
 
-    public function deleteProject(string $id): void
+    public function mount(): void
     {
-        $project = Project::findOrFail($id);
-        $project->delete();
-        Flux::toast('Project deleted successfully.', variant: 'success');
+        parent::mount();
+
+        $this->authorize('viewAny', Project::class);
+
+        if (ProjectSort::tryFrom($this->sortBy) === null) {
+            $this->sortBy = ProjectSort::Latest->value;
+        }
+
+        if (! self::isValidStatus($this->status)) {
+            $this->status = ProjectListStatus::Active->value;
+        }
     }
 
-    public function updatingSearch(): void
+    #[On('projects.saved')]
+    public function projectSaved(): void
     {
+        // Empty to trigger Livewire re-render
+    }
+
+    public function setStatusFilter(string $status): void
+    {
+        if (! self::isValidStatus($status)) {
+            return;
+        }
+
+        $this->status = $status;
         $this->resetPage();
     }
 
-    public function updatingStatusFilter(): void
+    #[Computed]
+    public function user(): User
     {
-        $this->resetPage();
+        return auth()->user();
     }
 
-    public function updatingSortBy(): void
+    #[Computed]
+    public function filters(): ProjectFilters
     {
-        $this->resetPage();
+        return new ProjectFilters(
+            search: $this->search,
+            status: ProjectListStatus::tryFrom($this->status) ?? ProjectListStatus::Active,
+            sort: ProjectSort::tryFrom($this->sortBy) ?? ProjectSort::Latest,
+            perPage: $this->perPage,
+        );
     }
 
-    public function render()
+    #[Computed]
+    public function projects(): LengthAwarePaginator
     {
-        return view('livewire.projects.index', [
-            'projects' => Project::query()
-                ->with(['client', 'service', 'projectChecklists'])
-                ->when($this->search, function ($query) {
-                    $query->where('project_name', 'like', '%'.$this->search.'%');
-                })
-                ->when($this->statusFilter !== 'all', function ($query) {
-                    $query->where('status', $this->statusFilter);
-                })
-                ->when($this->sortBy === 'latest', fn ($query) => $query->latest())
-                ->when($this->sortBy === 'oldest', fn ($query) => $query->oldest())
-                ->when($this->sortBy === 'a_to_z', fn ($query) => $query->orderBy('project_name', 'asc'))
-                ->when($this->sortBy === 'z_to_a', fn ($query) => $query->orderBy('project_name', 'desc'))
-                ->paginate(10),
-            'clients' => Client::orderBy('client_name')->get(),
-            'services' => Service::where('status', 'active')->orderBy('name')->get(),
-            'totalProjects' => Project::count(),
-            'inProgressProjects' => Project::where('status', 'in_progress')->count(),
-            'completedProjects' => Project::where('status', 'completed')->count(),
-            'onHoldProjects' => Project::where('status', 'on_hold')->count(),
-        ])->layout('components.layouts.app');
+        $filters = $this->filters();
+
+        return $this->query->query($this->user(), $filters)->paginate($filters->perPage);
+    }
+
+    #[Computed]
+    public function stats(): array
+    {
+        return $this->projectStats->cards($this->user());
+    }
+
+    protected function getPageResetProperties(): array
+    {
+        return [
+            'search',
+            'sortBy',
+            'status',
+        ];
+    }
+
+    private static function isValidStatus(string $status): bool
+    {
+        return ProjectListStatus::tryFrom($status) !== null;
+    }
+
+    public function render(): View
+    {
+        return view('livewire.projects.index')->layout('components.layouts.app');
     }
 }

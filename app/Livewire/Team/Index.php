@@ -1,185 +1,137 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Livewire\Team;
 
-use App\Enums\UserStatus;
+use App\Enums\UserListRole;
+use App\Enums\UserListStatus;
+use App\Enums\UserSort;
+use App\Filters\UserFilters;
+use App\Livewire\Base\BaseTableComponent;
 use App\Models\User;
-use App\Notifications\TeamMemberInvitation;
-use Flux\Flux;
-use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Str;
-use Livewire\Attributes\Layout;
+use App\Queries\UserQuery;
+use App\Services\TeamManager;
+use App\Stats\TeamStats;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\View\View;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\Attributes\Url;
 
-#[Layout('components.layouts.app')]
-class Index extends Component
+class Index extends BaseTableComponent
 {
-    use WithPagination;
+    use HasTeamActions;
 
+    private UserQuery $query;
+
+    private TeamStats $teamStats;
+
+    protected TeamManager $teamManager;
+
+    #[Url(except: '')]
     public string $search = '';
 
-    public string $roleFilter = '';
+    #[Url(except: UserListRole::All->value)]
+    public string $role = UserListRole::All->value;
 
-    public string $statusFilter = 'active';
+    #[Url(except: UserSort::Latest->value)]
+    public string $sortBy = UserSort::Latest->value;
 
-    public bool $showDeleteModal = false;
+    #[Url(except: UserListStatus::All->value)]
+    public string $status = UserListStatus::All->value;
 
-    public ?string $userId = null;
-
-    public function mount()
+    public function boot(UserQuery $query, TeamStats $stats, TeamManager $teamManager): void
     {
+        $this->query = $query;
+        $this->teamStats = $stats;
+        $this->teamManager = $teamManager;
+    }
+
+    public function mount(): void
+    {
+        parent::mount();
+
         $this->authorize('viewAny', User::class);
-    }
 
-    public function updatedSearch()
-    {
-        $this->resetPage();
-    }
-
-    public function updatedRoleFilter()
-    {
-        $this->resetPage();
-    }
-
-    public function updatedStatusFilter()
-    {
-        $this->resetPage();
-    }
-
-    public function create()
-    {
-        $this->dispatch('open-team-form');
-    }
-
-    public function edit(string $id)
-    {
-        $this->dispatch('open-team-form', userId: $id);
-    }
-
-    public function confirmDelete(string $id)
-    {
-        $user = User::findOrFail($id);
-        $this->authorize('delete', $user);
-        $this->userId = $id;
-        $this->showDeleteModal = true;
-    }
-
-    public function delete()
-    {
-        if ($this->userId && $this->userId !== auth()->id()) {
-            $user = User::findOrFail($this->userId);
-            $this->authorize('delete', $user);
-            $user->delete();
-            Flux::toast('Team member deleted.', variant: 'success');
+        if (UserListRole::tryFrom($this->role) === null) {
+            $this->role = UserListRole::All->value;
         }
 
-        $this->showDeleteModal = false;
+        if (UserSort::tryFrom($this->sortBy) === null) {
+            $this->sortBy = UserSort::Latest->value;
+        }
+
+        if (! self::isValidStatus($this->status)) {
+            $this->status = UserListStatus::All->value;
+        }
     }
 
-    public function restore(string $id)
+    #[On('teams.saved')]
+    public function teamMemberSaved(): void
     {
-        $user = User::withTrashed()->findOrFail($id);
-        $this->authorize('restore', $user);
-        $user->restore();
-        Flux::toast('Team member restored.', variant: 'success');
+        // Empty to trigger Livewire re-render
     }
 
-    public function resendInvitation(string $id)
+    public function setStatusFilter(string $status): void
     {
-        $user = User::findOrFail($id);
-        $this->authorize('update', $user);
-
-        if ($user->status !== UserStatus::PendingInvitation) {
-            Flux::toast('User is not pending invitation.', variant: 'danger');
-
+        if (! self::isValidStatus($status)) {
             return;
         }
 
-        $invitation = $user->invitations()->create([
-            'token' => Str::random(64),
-            'expires_at' => now()->addDays(7),
-        ]);
-
-        $user->notify(new TeamMemberInvitation($invitation->token));
-
-        Flux::toast('Invitation resent successfully.', variant: 'success');
+        $this->status = $status;
+        $this->resetPage();
     }
 
-    public function sendPasswordReset(string $id)
+    #[Computed]
+    public function user(): User
     {
-        $user = User::findOrFail($id);
-        $this->authorize('update', $user);
+        return auth()->user();
+    }
 
-        if ($user->status === UserStatus::PendingInvitation) {
-            Flux::toast('User is pending invitation. Resend invitation instead.', variant: 'danger');
-
-            return;
-        }
-
-        Password::broker()->sendResetLink(
-            ['email' => $user->email]
+    #[Computed]
+    public function filters(): UserFilters
+    {
+        return new UserFilters(
+            search: $this->search,
+            status: UserListStatus::tryFrom($this->status) ?? UserListStatus::All,
+            sort: UserSort::tryFrom($this->sortBy) ?? UserSort::Latest,
+            role: UserListRole::tryFrom($this->role) ?? UserListRole::All,
+            perPage: $this->perPage,
         );
-
-        Flux::toast('Password reset link sent.', variant: 'success');
     }
 
-    public function toggleStatus(string $id)
+    #[Computed]
+    public function users(): LengthAwarePaginator
     {
-        $user = User::findOrFail($id);
-        $this->authorize('update', $user);
+        $filters = $this->filters();
 
-        if ($user->id === auth()->id()) {
-            Flux::toast('You cannot change your own status.', variant: 'danger');
-
-            return;
-        }
-
-        if ($user->status === UserStatus::PendingInvitation) {
-            Flux::toast('Cannot toggle status of pending users.', variant: 'danger');
-
-            return;
-        }
-
-        $user->update([
-            'status' => $user->status === UserStatus::Active
-                ? UserStatus::Inactive
-                : UserStatus::Active,
-        ]);
-
-        Flux::toast('User status updated.', variant: 'success');
+        return $this->query->query($filters)->paginate($filters->perPage);
     }
 
-    #[On('team-member-saved')]
-    public function refreshList(): void
+    #[Computed]
+    public function stats(): array
     {
-        // This will trigger a re-render
+        return $this->teamStats->cards();
     }
 
-    public function render()
+    protected function getPageResetProperties(): array
     {
-        $query = User::with('invitation');
+        return [
+            'search',
+            'role',
+            'sortBy',
+            'status',
+        ];
+    }
 
-        if ($this->statusFilter === 'deleted') {
-            $query->onlyTrashed();
-        }
+    private static function isValidStatus(string $status): bool
+    {
+        return UserListStatus::tryFrom($status) !== null;
+    }
 
-        $users = $query
-            ->when($this->search, function ($query) {
-                $query->where(function ($q) {
-                    $q->where('name', 'like', '%'.$this->search.'%')
-                        ->orWhere('email', 'like', '%'.$this->search.'%');
-                });
-            })
-            ->when($this->roleFilter, function ($query) {
-                $query->where('role', $this->roleFilter);
-            })
-            ->orderBy('name')
-            ->paginate(10);
-
-        return view('livewire.team.index', [
-            'users' => $users,
-        ]);
+    public function render(): View
+    {
+        return view('livewire.team.index')->layout('components.layouts.app');
     }
 }

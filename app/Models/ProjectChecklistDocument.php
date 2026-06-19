@@ -9,14 +9,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ProjectChecklistDocument extends Model
 {
     use HasUlids;
+
     protected $fillable = [
         'project_checklist_id',
-        'client_document_id',
+        'document_id',
     ];
 
-    public function clientDocument(): BelongsTo
+    public function Document(): BelongsTo
     {
-        return $this->belongsTo(ClientDocument::class);
+        return $this->belongsTo(Document::class)->withTrashed();
     }
 
     public function projectChecklist(): BelongsTo

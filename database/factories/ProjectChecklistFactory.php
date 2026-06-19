@@ -21,6 +21,7 @@ class ProjectChecklistFactory extends Factory
         return [
             'project_id' => Project::factory(),
             'name' => fake()->words(3, true),
+            'description' => fake()->boolean() ? fake()->sentence() : null,
             'is_mandatory' => true,
             'status' => 'Pending',
         ];

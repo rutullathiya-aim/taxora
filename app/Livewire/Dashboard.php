@@ -2,14 +2,20 @@
 
 namespace App\Livewire;
 
+use App\Enums\TaskStatus;
 use App\Models\Client;
 use App\Models\Project;
 use App\Models\ProjectChecklist;
 use App\Models\Service;
+use App\Models\Task;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 class Dashboard extends Component
 {
+    #[On('tasks.saved')]
+    public function refreshDashboard(): void {}
+
     public function render()
     {
         $totalClients = Client::count();
@@ -39,7 +45,7 @@ class Dashboard extends Component
             ->where('due_date', '>=', now()->startOfDay())
             ->count();
 
-        $recentProjects = Project::with(['client', 'service', 'projectChecklists'])
+        $recentProjects = Project::with(['client', 'service', 'checklists'])
             ->latest()
             ->take(7)
             ->get();
@@ -49,7 +55,7 @@ class Dashboard extends Component
             ->take(10)
             ->get();
 
-        $serviceHealth = Service::where('status', 'active')
+        $serviceHealth = Service::where('is_active', true)
             ->withCount('projects')
             ->get()
             ->map(function (Service $service) {
@@ -87,16 +93,28 @@ class Dashboard extends Component
             ? round((($submittedCount + $completedFilings + $rejectedCount) / $totalChecklists) * 100)
             : 0;
 
-        $activeServicesCount = Service::where('status', 'active')->count();
+        $activeServicesCount = Service::where('is_active', true)->count();
 
-        $sparklines = [
-            'clients' => $this->sparkline([3, 4, 5, 5, 6, 7, 7, 8, 9, 10, max(1, $totalClients)]),
-            'projects' => $this->sparkline([2, 3, 4, 3, 5, 4, 5, 6, max(1, $activeProjects)]),
-            'pending' => $this->sparkline([30, 28, 25, 22, 20, 18, 15, 12, max(1, $pendingDocuments)]),
-            'deadlines' => $this->sparkline([2, 3, 5, 4, 3, 6, 4, 3, max(1, $upcomingCount)]),
-            'completed' => $this->sparkline([8, 15, 25, 35, 45, 50, 55, 60, max(1, $completedFilings)]),
-            'rate' => $this->sparkline([25, 30, 38, 42, 48, 55, 60, 68, max(1, $complianceRate)]),
-        ];
+        // Tasks Metrics
+        $tasksQuery = Task::query();
+        if (auth()->user()->hasRole('staff')) {
+            $tasksQuery->whereHas('assignees', fn ($q) => $q->where('users.id', auth()->id()));
+        }
+
+        $totalTasks = (clone $tasksQuery)->count();
+        $todoTasks = (clone $tasksQuery)->where('status', TaskStatus::Todo)->count();
+        $inProgressTasks = (clone $tasksQuery)->where('status', TaskStatus::InProgress)->count();
+        $completedTasks = (clone $tasksQuery)->where('status', TaskStatus::Completed)->count();
+        $overdueTasks = (clone $tasksQuery)
+            ->where('due_at', '<', now())
+            ->whereNotIn('status', [TaskStatus::Completed, TaskStatus::Cancelled])
+            ->count();
+
+        $recentTasks = (clone $tasksQuery)
+            ->with(['client', 'project', 'assignees'])
+            ->latest()
+            ->take(5)
+            ->get();
 
         return view('livewire.dashboard', [
             'totalClients' => $totalClients,
@@ -116,42 +134,14 @@ class Dashboard extends Component
             'approvalRate' => $approvalRate,
             'submissionRate' => $submissionRate,
             'activeServicesCount' => $activeServicesCount,
-            'sparklines' => $sparklines,
+
+            // Task variables
+            'totalTasks' => $totalTasks,
+            'todoTasks' => $todoTasks,
+            'inProgressTasks' => $inProgressTasks,
+            'completedTasks' => $completedTasks,
+            'overdueTasks' => $overdueTasks,
+            'recentTasks' => $recentTasks,
         ])->layout('components.layouts.app');
-    }
-
-    /**
-     * Generate SVG sparkline polyline and area polygon points from values.
-     *
-     * @param  array<int, int|float>  $values
-     * @return array{line: string, area: string}
-     */
-    private function sparkline(array $values): array
-    {
-        $count = count($values);
-
-        if ($count < 2) {
-            return ['line' => '', 'area' => ''];
-        }
-
-        $max = max($values);
-        $min = min($values);
-        $range = $max - $min ?: 1;
-        $linePoints = [];
-        $areaPoints = ['0,32'];
-
-        for ($i = 0; $i < $count; $i++) {
-            $x = round(($i / ($count - 1)) * 100, 1);
-            $y = round(30 - (($values[$i] - $min) / $range) * 26, 1);
-            $linePoints[] = "$x,$y";
-            $areaPoints[] = "$x,$y";
-        }
-
-        $areaPoints[] = '100,32';
-
-        return [
-            'line' => implode(' ', $linePoints),
-            'area' => implode(' ', $areaPoints),
-        ];
     }
 }

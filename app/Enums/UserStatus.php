@@ -1,28 +1,34 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Enums;
+
+use App\Enums\Concerns\HasOptions;
 
 enum UserStatus: string
 {
-    case PendingInvitation = 'pending_invitation';
+    use HasOptions;
+
     case Active = 'active';
     case Inactive = 'inactive';
+    case Pending = 'pending';
 
     public function label(): string
     {
         return match ($this) {
-            self::PendingInvitation => 'Pending Invitation',
             self::Active => 'Active',
             self::Inactive => 'Inactive',
+            self::Pending => 'Pending',
         };
     }
 
     public function color(): string
     {
         return match ($this) {
-            self::PendingInvitation => 'zinc',
             self::Active => 'green',
-            self::Inactive => 'red',
+            self::Inactive => 'zinc',
+            self::Pending => 'orange',
         };
     }
 }

@@ -11,6 +11,7 @@ use Livewire\Volt\Component;
 new #[Layout('components.layouts.auth')] class extends Component {
     public string $name = '';
     public string $email = '';
+    public string $phone = '';
     public string $password = '';
     public string $password_confirmation = '';
 
@@ -20,8 +21,9 @@ new #[Layout('components.layouts.auth')] class extends Component {
     public function register(): void
     {
         $validated = $this->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
+            'name' => ['required', 'string', 'max:150'],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:150', 'unique:' . User::class],
+            'phone' => ['required', 'numeric', 'digits:10', 'regex:/^[6-9]\d{9}$/', 'unique:' . User::class],
             'password' => ['required', 'string', 'confirmed', Rules\Password::defaults()],
         ]);
 
@@ -50,6 +52,11 @@ new #[Layout('components.layouts.auth')] class extends Component {
         <!-- Email Address -->
         <div class="grid gap-2">
             <flux:input wire:model="email" id="email" label="{{ __('Email address') }}" type="email" name="email" required autocomplete="email" placeholder="email@example.com" />
+        </div>
+
+        <!-- Phone -->
+        <div class="grid gap-2">
+            <flux:input wire:model="phone" id="phone" label="{{ __('Phone') }}" type="text" name="phone" required autocomplete="tel" placeholder="10-digit mobile number" />
         </div>
 
         <!-- Password -->

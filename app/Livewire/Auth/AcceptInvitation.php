@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Auth;
 
-use App\Enums\UserStatus;
 use App\Models\UserInvitation;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -42,7 +41,7 @@ class AcceptInvitation extends Component
 
         $user->update([
             'password' => $this->password,
-            'status' => UserStatus::Active,
+            'is_active' => true,
             'email_verified_at' => $user->email_verified_at ?? now(),
         ]);
 

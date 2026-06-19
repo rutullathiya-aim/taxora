@@ -1,318 +1,284 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Livewire\Projects;
 
-use App\Models\ClientDocument;
+use App\Enums\ChecklistStatus;
+use App\Enums\CrudAction;
+use App\Enums\TaskPriority;
+use App\Enums\TaskStatus;
 use App\Models\Project;
-use App\Models\ProjectChecklist;
-use App\Models\ProjectChecklistDocument;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\View\View;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\WithFileUploads;
+use Livewire\WithPagination;
 
 class Show extends Component
 {
-    use WithFileUploads;
+    use HasProjectActions, HasProjectChecklistActions, WithPagination;
 
     public Project $project;
 
-    public bool $showVaultModal = false;
+    public int $perPage = 10;
 
-    public ?string $uploadingChecklistId = null;
+    private const VALID_TABS = [
+        'checklists',
+        'tasks',
+    ];
 
-    public string $vaultSearch = '';
+    private const VALID_TASK_SORTS = [
+        'created_at',
+        'title',
+        'due_at',
+    ];
 
-    public ?string $previewDocumentId = null;
+    private const TASK_PAGE_RESET_PROPERTIES = [
+        'taskSearch',
+        'taskStatusFilter',
+        'taskPriorityFilter',
+        'taskSortBy',
+    ];
 
-    public array $selectedVaultDocumentIds = [];
-
-    public array $alreadyAttachedDocumentIds = [];
-
-    public $newDocuments = [];
-
+    #[Url(except: '')]
     public string $search = '';
 
-    public string $statusFilter = 'all';
+    #[Url(except: 'all')]
+    public string $status = 'all';
 
-    public bool $showRemarksModal = false;
+    #[Url(except: '')]
+    public string $taskSearch = '';
 
-    public ?string $remarksChecklistId = null;
+    #[Url(except: 'active')]
+    public string $taskStatusFilter = 'active';
 
-    public string $remarks = '';
+    #[Url(except: '')]
+    public string $taskPriorityFilter = '';
 
-    public array $selectedChecklists = [];
+    #[Url(except: 'due_at')]
+    public string $taskSortBy = 'due_at';
 
-    public ?string $viewerDocumentId = null;
-
-    public bool $showViewerModal = false;
-
-    public bool $selectAll = false;
-
-    /** @var array<string> */
-    public array $statuses = [
-        'Pending',
-        'Submitted',
-        'Approved',
-        'Rejected',
-        'Not Applicable',
-    ];
+    #[Url(except: 'checklists')]
+    public string $currentTab = 'checklists';
 
     public function mount(Project $project): void
     {
-        $this->project = $project->load(['client', 'service', 'projectChecklists.documents']);
-    }
+        $this->perPage = auth()->user()?->getPreference('per_page', 10) ?? 10;
+        $this->authorize('view', $project);
+        $this->project = $project->load(['client', 'service', 'checklists', 'assignees']);
 
-    public function openVaultModal(string $checklistId): void
-    {
-        $this->uploadingChecklistId = $checklistId;
-
-        $checklist = ProjectChecklist::with('documents')->findOrFail($checklistId);
-        abort_if($checklist->project_id !== $this->project->id, 403);
-
-        $this->alreadyAttachedDocumentIds = $checklist->documents->pluck('client_document_id')->toArray();
-        $this->selectedVaultDocumentIds = $this->alreadyAttachedDocumentIds;
-
-        $this->newDocuments = [];
-        $this->vaultSearch = '';
-        $this->previewDocumentId = null;
-        $this->resetValidation();
-
-        if (! empty($this->selectedVaultDocumentIds)) {
-            $this->previewDocumentId = $this->selectedVaultDocumentIds[0];
+        if (! in_array($this->currentTab, self::VALID_TABS, true)) {
+            $this->currentTab = 'checklists';
         }
 
-        $this->showVaultModal = true;
-    }
-
-    public function updatedNewDocuments(): void
-    {
-        $this->validate([
-            'newDocuments.*' => 'required|file|mimes:pdf,jpg,jpeg,png,doc,docx,xls,xlsx|max:10240',
-        ]);
-
-        foreach ($this->newDocuments as $doc) {
-            $originalName = $doc->getClientOriginalName();
-            $mimeType = $doc->getMimeType();
-            $size = $doc->getSize();
-
-            $path = $doc->store('client-documents/'.$this->project->client_id, 'local');
-
-            $clientDoc = ClientDocument::create([
-                'client_id' => $this->project->client_id,
-                'name' => $originalName,
-                'original_name' => $originalName,
-                'mime_type' => $mimeType,
-                'size' => $size,
-                'path' => $path,
-            ]);
-
-            if (! in_array($clientDoc->id, $this->selectedVaultDocumentIds)) {
-                $this->selectedVaultDocumentIds[] = $clientDoc->id;
-            }
-
-            if ($doc === $this->newDocuments[0]) {
-                $this->previewDocumentId = $clientDoc->id;
-            }
+        if (! in_array($this->taskSortBy, self::VALID_TASK_SORTS, true)) {
+            $this->taskSortBy = 'due_at';
         }
 
-        $this->newDocuments = [];
-    }
+        $validStatuses = [...array_column(ChecklistStatus::cases(), 'value'), 'all'];
 
-    public function removeSelection(string $id): void
-    {
-        $this->selectedVaultDocumentIds = array_values(array_diff($this->selectedVaultDocumentIds, [$id]));
-    }
-
-    public function setPreviewDocument(string $id): void
-    {
-        $this->previewDocumentId = $id;
-    }
-
-    public function confirmVaultSelection(): void
-    {
-        $checklist = ProjectChecklist::findOrFail($this->uploadingChecklistId);
-        abort_if($checklist->project_id !== $this->project->id, 403);
-
-        $currentlyAttached = $checklist->documents()->pluck('client_document_id')->toArray();
-
-        $toAttach = array_diff($this->selectedVaultDocumentIds, $currentlyAttached);
-        $toDetach = array_diff($currentlyAttached, $this->selectedVaultDocumentIds);
-
-        if (! empty($toDetach)) {
-            $checklist->documents()->whereIn('client_document_id', $toDetach)->delete();
-        }
-
-        foreach ($toAttach as $clientDocId) {
-            $exists = ClientDocument::where('client_id', $this->project->client_id)
-                ->where('id', $clientDocId)->exists();
-
-            if ($exists) {
-                $checklist->documents()->create([
-                    'client_document_id' => $clientDocId,
-                ]);
-            }
-        }
-
-        if ($checklist->status === 'Pending' && $checklist->documents()->count() > 0) {
-            $checklist->update(['status' => 'Submitted']);
-        } elseif ($checklist->documents()->count() === 0 && in_array($checklist->status, ['Submitted', 'Approved', 'Rejected'])) {
-            $checklist->update(['status' => 'Pending']);
-        }
-
-        $this->showVaultModal = false;
-        $this->uploadingChecklistId = null;
-        $this->project->refresh();
-    }
-
-    public function updateStatus(string $checklistId, string $status): void
-    {
-
-        if (! in_array($status, $this->statuses)) {
-            abort(400);
-        }
-
-        $checklist = ProjectChecklist::findOrFail($checklistId);
-        abort_if($checklist->project_id !== $this->project->id, 403);
-
-        $updateData = ['status' => $status];
-
-        if ($status === 'Approved') {
-            $updateData['approved_at'] = now();
-            $updateData['approved_by'] = auth()->id() ?? abort(403, 'Must be logged in to approve');
-        }
-
-        $checklist->update($updateData);
-        $this->project->refresh();
-    }
-
-    public function updatedSelectAll($value): void
-    {
-        if ($value) {
-            $this->selectedChecklists = $this->project->projectChecklists()
-                ->when($this->search, fn ($q) => $q->where('name', 'like', '%'.$this->search.'%'))
-                ->when($this->statusFilter !== 'all', fn ($q) => $q->where('status', $this->statusFilter))
-                ->pluck('id')
-                ->map(fn ($id) => (string) $id)
-                ->toArray();
-        } else {
-            $this->selectedChecklists = [];
+        if (! in_array($this->status, $validStatuses, true)) {
+            $this->status = 'all';
         }
     }
 
-    public function updatedSelectedChecklists(): void
+    public function updatedPerPage($value): void
     {
-        // When user manually unchecks an item, uncheck "select all"
-        $this->selectAll = false;
+        $this->resetPage('tasksPage');
+        auth()->user()?->setPreference('per_page', (int) $value);
     }
 
-    public function bulkUpdateStatus(string $status): void
+    public function setTaskStatusFilter(string $status): void
     {
-        if (! in_array($status, $this->statuses) || empty($this->selectedChecklists)) {
-            return;
+        $this->taskStatusFilter = $status;
+        $this->resetPage('tasksPage');
+    }
+
+    public function setTab(string $tab): void
+    {
+        if (in_array($tab, self::VALID_TABS, true)) {
+            $this->currentTab = $tab;
         }
-
-        $checklists = ProjectChecklist::whereIn('id', $this->selectedChecklists)
-            ->where('project_id', $this->project->id)
-            ->get();
-
-        foreach ($checklists as $checklist) {
-            $updateData = ['status' => $status];
-            if ($status === 'Approved') {
-                $updateData['approved_at'] = now();
-                $updateData['approved_by'] = auth()->id() ?? abort(403);
-            }
-            $checklist->update($updateData);
-        }
-
-        $this->selectedChecklists = [];
-        $this->selectAll = false;
-        $this->project->refresh();
     }
 
-    public function openRemarksModal(string $checklistId): void
+    public function afterProjectAction(CrudAction $action, Project $project): void
     {
-        $checklist = ProjectChecklist::findOrFail($checklistId);
-        abort_if($checklist->project_id !== $this->project->id, 403);
-        $this->remarksChecklistId = $checklistId;
-        $this->remarks = $checklist->remarks ?? '';
-        $this->showRemarksModal = true;
-    }
-
-    public function saveRemarks(): void
-    {
-
-        $checklist = ProjectChecklist::findOrFail($this->remarksChecklistId);
-        abort_if($checklist->project_id !== $this->project->id, 403);
-
-        $checklist->update([
-            'remarks' => $this->remarks,
-        ]);
-
-        $this->remarksChecklistId = null;
-        $this->remarks = '';
-        $this->showRemarksModal = false;
-        $this->project->refresh();
-    }
-
-    public function viewDocument(string $documentId): void
-    {
-        $this->viewerDocumentId = $documentId;
-        $this->showViewerModal = true;
-    }
-
-    public function downloadDocument(string $documentId)
-    {
-        $document = ProjectChecklistDocument::with('clientDocument')->findOrFail($documentId);
-        abort_if($document->projectChecklist->project_id !== $this->project->id, 403);
-
-        $clientDoc = $document->clientDocument;
-
-        if (! Storage::disk('local')->exists($clientDoc->path)) {
-            session()->flash('error', 'Document not found.');
+        if ($action === CrudAction::ForceDeleted && $this->project->id === $project->id) {
+            $this->redirect(route('projects.index'), navigate: true);
 
             return;
         }
 
-        return Storage::disk('local')->download($clientDoc->path, $clientDoc->name);
+        if (in_array($action, [CrudAction::Deleted, CrudAction::Restored]) && $this->project->id === $project->id) {
+            $this->project->refresh();
+        }
     }
 
-    public function deleteDocument(string $documentId): void
+    public function afterProjectChecklistAction(string $action, $checklist = null): void
     {
-        $document = ProjectChecklistDocument::findOrFail($documentId);
-        $checklist = $document->projectChecklist;
-        abort_if($checklist->project_id !== $this->project->id, 403);
+        $this->dispatch('checklist-updated');
+    }
 
-        $document->delete();
+    #[On('checklist-updated')]
+    #[On('tasks.saved')]
+    #[On('projects.saved')]
+    public function refreshProject(): void
+    {
+        $this->project->refresh()->load([
+            'client',
+            'service',
+            'checklists',
+            'assignees',
+        ]);
+    }
 
-        if ($checklist->documents()->count() === 0 && in_array($checklist->status, ['Submitted', 'Approved', 'Rejected'])) {
-            $checklist->update(['status' => 'Pending']);
+    public function updated(string $property): void
+    {
+        if (in_array($property, self::TASK_PAGE_RESET_PROPERTIES, true)) {
+            $this->resetPage('tasksPage');
+        }
+    }
+
+    #[Computed]
+    public function checklists(): Collection
+    {
+        return $this->checklistQuery()->get();
+    }
+
+    private function checklistQuery(): HasMany
+    {
+        $query = $this->project->checklists()
+            ->with('documents.Document');
+
+        $this->applyChecklistSearch($query);
+        $this->applyChecklistStatusFilter($query);
+        $this->applyChecklistSorting($query);
+
+        return $query;
+    }
+
+    private function applyChecklistSearch(HasMany $query): void
+    {
+        $search = trim($this->search);
+
+        if (blank($search)) {
+            return;
         }
 
-        $this->project->refresh();
+        $query->where('name', 'like', '%' . $search . '%');
     }
 
-    public function render()
+    private function applyChecklistStatusFilter(HasMany $query): void
     {
-        $checklists = $this->project->projectChecklists()
-            ->with('documents')
-            ->when($this->search, function ($query) {
-                $query->where('name', 'like', '%'.$this->search.'%');
-            })
-            ->when($this->statusFilter !== 'all', function ($query) {
-                $query->where('status', $this->statusFilter);
-            })
-            ->get();
+        if ($this->status === 'all') {
+            return;
+        }
 
-        $clientDocuments = ClientDocument::where('client_id', $this->project->client_id)
-            ->when($this->vaultSearch, function ($query) {
-                $query->where('name', 'like', '%'.$this->vaultSearch.'%');
-            })
-            ->latest()
-            ->get();
+        $query->where('status', $this->status);
+    }
 
+    private function applyChecklistSorting(HasMany $query): void
+    {
+        $query->orderBy('id');
+    }
+
+    #[Computed]
+    public function tasks(): LengthAwarePaginator
+    {
+        return $this->taskQuery()
+            ->paginate($this->perPage, ['*'], 'tasksPage');
+    }
+
+    private function taskQuery(): HasMany
+    {
+        $query = $this->project->tasks()->with(['assignees']);
+
+        $user = auth()->user();
+
+        if ($user->isStaff()) {
+            $query->whereRelation('assignees', 'users.id', $user->id);
+        }
+
+        $this->applyTaskSearch($query);
+        $this->applyTaskStatusFilter($query);
+        $this->applyTaskPriorityFilter($query);
+        $this->applyTaskSorting($query);
+
+        return $query;
+    }
+
+    private function applyTaskSearch(HasMany $query): void
+    {
+        $search = trim($this->taskSearch);
+
+        if (blank($search)) {
+            return;
+        }
+
+        $query->where(function ($q) use ($search) {
+            $q->where('title', 'like', '%' . $search . '%')
+                ->orWhere('task_number', 'like', '%' . $search . '%');
+        });
+    }
+
+    private function applyTaskStatusFilter(HasMany $query): void
+    {
+        if ($this->taskStatusFilter === 'active') {
+            $query->whereIn('status', [TaskStatus::Todo, TaskStatus::InProgress]);
+
+            return;
+        }
+
+        if (blank($this->taskStatusFilter)) {
+            return;
+        }
+
+        $query->where('status', $this->taskStatusFilter);
+    }
+
+    private function applyTaskPriorityFilter(HasMany $query): void
+    {
+        if (blank($this->taskPriorityFilter)) {
+            return;
+        }
+
+        $query->where('priority', $this->taskPriorityFilter);
+    }
+
+    private function applyTaskSorting(HasMany $query): void
+    {
+        match ($this->taskSortBy) {
+            'created_at' => $query->orderBy('created_at', 'desc')->orderBy('id', 'desc'),
+            'title' => $query->orderBy('title', 'asc')->orderBy('id'),
+            default => $query->orderByRaw('due_at IS NULL, due_at ASC')->orderBy('id'),
+        };
+    }
+
+    public function render(): View
+    {
         return view('livewire.projects.show', [
-            'checklists' => $checklists,
-            'clientDocuments' => $clientDocuments,
+            'taskStatuses' => TaskStatus::cases(),
+            'taskPriorities' => TaskPriority::cases(),
         ])->layout('components.layouts.app');
+    }
+
+    #[Computed]
+    public function progressStats(): array
+    {
+        $checklists = $this->checklists;
+        $total = $checklists->count();
+        $completed = $checklists->whereIn('status', [ChecklistStatus::Approved, ChecklistStatus::Submitted, ChecklistStatus::NotApplicable])->count();
+        $percentage = $total > 0 ? (int) round(($completed / $total) * 100) : 0;
+
+        return [
+            'total' => $total,
+            'completed' => $completed,
+            'percentage' => $percentage,
+        ];
     }
 }

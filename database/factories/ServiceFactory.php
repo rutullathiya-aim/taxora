@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\ServiceStatus;
 use App\Models\Service;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -23,16 +24,15 @@ class ServiceFactory extends Factory
         return [
             'name' => $name,
             'slug' => Str::slug($name),
-            'icon' => 'briefcase',
             'description' => fake()->sentence(),
-            'status' => 'active',
+            'status' => ServiceStatus::Active->value,
         ];
     }
 
     public function inactive(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'inactive',
+            'status' => ServiceStatus::Inactive->value,
         ]);
     }
 }

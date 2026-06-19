@@ -2,14 +2,16 @@
 
 namespace App\Models;
 
+use App\Enums\ServiceChecklistItemStatus;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ServiceChecklistItem extends Model
 {
-    use HasFactory, HasUlids;
+    use HasFactory, HasUlids, SoftDeletes;
 
     protected $table = 'service_checklist_items';
 
@@ -18,7 +20,6 @@ class ServiceChecklistItem extends Model
         'title',
         'description',
         'is_mandatory',
-        'allowed_file_types',
         'sort_order',
         'status',
     ];
@@ -32,6 +33,7 @@ class ServiceChecklistItem extends Model
     {
         return [
             'is_mandatory' => 'boolean',
+            'status' => ServiceChecklistItemStatus::class,
             'sort_order' => 'integer',
         ];
     }

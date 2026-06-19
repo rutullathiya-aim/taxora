@@ -1,104 +1,128 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Livewire\Services;
 
+use App\Enums\ServiceListStatus;
+use App\Enums\ServiceSort;
+use App\Filters\ServiceFilters;
+use App\Livewire\Base\BaseTableComponent;
 use App\Models\Service;
-use Illuminate\Support\Str;
-use Livewire\Attributes\Validate;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Models\User;
+use App\Queries\ServiceQuery;
+use App\Services\ServiceManager;
+use App\Stats\ServiceStats;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\View\View;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
 
-class Index extends Component
+class Index extends BaseTableComponent
 {
-    use WithPagination;
+    use HasServiceActions;
 
-    public bool $showCreateModal = false;
+    private ServiceQuery $query;
 
-    public ?string $editingServiceId = null;
+    private ServiceStats $serviceStats;
 
+    protected ServiceManager $serviceManager;
+
+    #[Url(except: '')]
     public string $search = '';
 
-    #[Validate('required|string|max:255')]
-    public string $name = '';
+    #[Url(except: ServiceSort::Latest->value)]
+    public string $sortBy = ServiceSort::Latest->value;
 
-    #[Validate('nullable|string')]
-    public ?string $description = null;
+    #[Url(except: ServiceListStatus::Active->value)]
+    public string $status = ServiceListStatus::Active->value;
 
-    #[Validate('required|string|max:50')]
-    public string $icon = 'briefcase';
-
-    #[Validate('required|in:active,inactive')]
-    public string $status = 'active';
-
-    public function mount(): void {}
-
-    public function createService(): void
+    public function boot(ServiceQuery $query, ServiceStats $stats, ServiceManager $serviceManager): void
     {
-        $this->resetForm();
-        $this->showCreateModal = true;
+        $this->query = $query;
+        $this->serviceStats = $stats;
+        $this->serviceManager = $serviceManager;
     }
 
-    public function editService(string $id): void
+    public function mount(): void
     {
-        $service = Service::findOrFail($id);
-        $this->editingServiceId = $service->id;
-        $this->name = $service->name;
-        $this->description = $service->description;
-        $this->icon = $service->icon;
-        $this->status = $service->status;
-        $this->showCreateModal = true;
-    }
+        parent::mount();
 
-    public function saveService(): void
-    {
+        $this->authorize('viewAny', Service::class);
 
-        $rules = [
-            'name' => 'required|string|max:255|unique:services,name'.($this->editingServiceId ? ','.$this->editingServiceId : ''),
-            'description' => 'nullable|string',
-            'icon' => 'required|string|max:50',
-            'status' => 'required|in:active,inactive',
-        ];
-
-        $validated = $this->validate($rules);
-        $validated['slug'] = Str::slug($validated['name']);
-
-        if ($this->editingServiceId) {
-            Service::findOrFail($this->editingServiceId)->update($validated);
-        } else {
-            Service::create($validated);
+        if (ServiceSort::tryFrom($this->sortBy) === null) {
+            $this->sortBy = ServiceSort::Latest->value;
         }
 
-        $this->resetForm();
-        $this->showCreateModal = false;
+        if (! self::isValidStatus($this->status)) {
+            $this->status = ServiceListStatus::Active->value;
+        }
     }
 
-    public function deleteService(string $id): void
+    #[On('services.saved')]
+    public function serviceSaved(): void
     {
-        Service::findOrFail($id)->delete();
+        // Empty to trigger Livewire re-render
     }
 
-    public function updatingSearch(): void
+    public function setStatusFilter(string $status): void
     {
+        if (! self::isValidStatus($status)) {
+            return;
+        }
+
+        $this->status = $status;
         $this->resetPage();
     }
 
-    public function resetForm(): void
+    #[Computed]
+    public function user(): User
     {
-        $this->reset(['name', 'description', 'icon', 'status', 'editingServiceId']);
-        $this->resetValidation();
+        return auth()->user();
     }
 
-    public function render()
+    #[Computed]
+    public function filters(): ServiceFilters
     {
-        return view('livewire.services.index', [
-            'services' => Service::query()
-                ->withCount('checklistItems')
-                ->when($this->search, fn ($query) => $query->where('name', 'like', '%'.$this->search.'%'))
-                ->latest()
-                ->paginate(12),
-            'totalServices' => Service::count(),
-            'activeServices' => Service::where('status', 'active')->count(),
-            'inactiveServices' => Service::where('status', 'inactive')->count(),
-        ])->layout('components.layouts.app');
+        return new ServiceFilters(
+            search: $this->search,
+            status: ServiceListStatus::tryFrom($this->status) ?? ServiceListStatus::Active,
+            sort: ServiceSort::tryFrom($this->sortBy) ?? ServiceSort::Latest,
+            perPage: $this->perPage,
+        );
+    }
+
+    #[Computed]
+    public function services(): LengthAwarePaginator
+    {
+        $filters = $this->filters();
+
+        return $this->query->query($this->user(), $filters)->withCount('checklistItems')->paginate($filters->perPage);
+    }
+
+    #[Computed]
+    public function stats(): array
+    {
+        return $this->serviceStats->cards($this->user());
+    }
+
+    protected function getPageResetProperties(): array
+    {
+        return [
+            'search',
+            'sortBy',
+            'status',
+        ];
+    }
+
+    private static function isValidStatus(string $status): bool
+    {
+        return ServiceListStatus::tryFrom($status) !== null;
+    }
+
+    public function render(): View
+    {
+        return view('livewire.services.index')->layout('components.layouts.app');
     }
 }

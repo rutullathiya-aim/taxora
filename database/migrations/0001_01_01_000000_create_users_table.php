@@ -13,15 +13,21 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->ulid('id')->primary();
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->string('phone')->nullable();
-            $table->string('role')->default('staff');
+            $table->string('name', 150)->index();
+            $table->string('email', 150)->unique();
+            $table->string('phone', 20)->index();
+            $table->string('role', 20)->default('staff');
+            $table->boolean('is_active')->default(true);
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->timestamp('last_login_at')->nullable();
             $table->rememberToken();
-            $table->softDeletes();
+            $table->json('preferences')->nullable();
             $table->timestamps();
+            $table->softDeletes();
+            $table->index(['is_active', 'deleted_at']);
+            $table->index(['deleted_at', 'is_active', 'created_at']);
+            $table->index(['role', 'is_active', 'deleted_at']);
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
@@ -32,7 +38,7 @@ return new class extends Migration
 
         Schema::create('sessions', function (Blueprint $table) {
             $table->string('id')->primary();
-            $table->foreignUlid('user_id')->nullable()->index();
+            $table->foreignUlid('user_id')->nullable()->index()->constrained()->cascadeOnDelete();
             $table->string('ip_address', 45)->nullable();
             $table->text('user_agent')->nullable();
             $table->longText('payload');

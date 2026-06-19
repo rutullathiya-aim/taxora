@@ -2,13 +2,11 @@
 
 namespace Database\Seeders;
 
-use App\Models\Client;
-use App\Models\Project;
-use App\Models\ProjectChecklist;
+use App\Enums\ServiceChecklistItemStatus;
+use App\Enums\ServiceStatus;
 use App\Models\Service;
 use App\Models\ServiceChecklistItem;
 use App\Models\User;
-use Faker\Factory;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
@@ -23,88 +21,16 @@ class DemoDataSeeder extends Seeder
         // USERS
         // ──────────────────────────────────────────────
         User::firstOrCreate(
-            ['email' => 'test@example.com'],
+            ['email' => 'admin@taxora.in'],
             [
-                'name' => 'Rutul Lathiya',
+                'name' => 'Admin',
                 'role' => 'admin',
-                'status' => \App\Enums\UserStatus::Active,
-                'phone' => '9876543210',
-                'password' => bcrypt('password'),
-            ]
-        );
-
-        User::firstOrCreate(
-            ['email' => 'admin@example.com'],
-            [
-                'name' => 'Amit Sharma',
-                'role' => 'admin',
-                'status' => \App\Enums\UserStatus::Active,
-                'phone' => '9876543211',
-                'password' => bcrypt('password'),
-            ]
-        );
-
-        User::firstOrCreate(
-            ['email' => 'manager@example.com'],
-            [
-                'name' => 'Priya Patel',
-                'role' => 'manager',
-                'status' => \App\Enums\UserStatus::Active,
-                'phone' => '9876543212',
-                'password' => bcrypt('password'),
-            ]
-        );
-
-        User::firstOrCreate(
-            ['email' => 'staff1@example.com'],
-            [
-                'name' => 'Rohan Mehta',
-                'role' => 'staff',
-                'status' => \App\Enums\UserStatus::Active,
-                'phone' => '9876543213',
-                'password' => bcrypt('password'),
-            ]
-        );
-
-        User::firstOrCreate(
-            ['email' => 'staff2@example.com'],
-            [
-                'name' => 'Neha Gupta',
-                'role' => 'staff',
-                'phone' => '9876543214',
-                'password' => bcrypt('password'),
-            ]
-        );
-
-        // ──────────────────────────────────────────────
-        // CLIENTS
-        // ──────────────────────────────────────────────
-        $faker = Factory::create('en_IN');
-        $clients = [];
-
-        // Always keep the demo client for predictable testing
-        $clients[] = Client::firstOrCreate(
-            ['email' => 'demo.client@example.com'],
-            [
-                'client_name' => 'John Doe',
-                'company_name' => 'Doe Enterprises Pvt Ltd',
-                'phone' => '9876543210',
-                'address' => '123 Business Street, Tech Park, Mumbai',
                 'is_active' => true,
+                'email_verified_at' => now(),
+                'phone' => '9876543210',
+                'password' => bcrypt('taxora@4321'),
             ]
         );
-
-        // Generate 14 more clients (total 15)
-        for ($i = 0; $i < 14; $i++) {
-            $clients[] = Client::create([
-                'client_name' => $faker->name,
-                'company_name' => $faker->company.' Pvt Ltd',
-                'email' => $faker->unique()->safeEmail,
-                'phone' => $faker->numerify('9#########'),
-                'address' => $faker->address,
-                'is_active' => $faker->boolean(80), // 80% chance of being active
-            ]);
-        }
 
         // ──────────────────────────────────────────────
         // SERVICES & CHECKLISTS
@@ -113,7 +39,6 @@ class DemoDataSeeder extends Seeder
         $data = [
             [
                 'name' => 'Incorporation of Partnership Deed',
-                'icon' => 'document-text',
                 'items' => [
                     'Aadhar Card and PAN Card of all Partners',
                     'Nature of Business Activity',
@@ -126,7 +51,6 @@ class DemoDataSeeder extends Seeder
             ],
             [
                 'name' => 'Incorporation of Private Limited Company',
-                'icon' => 'building-office',
                 'items' => [
                     "Colour KYC of Promoters (PAN Card and Aadhar Card)\n(Minimum 2 Directors)",
                     'DIN Number of Promoters (if available) (Minimum 2 Directors)',
@@ -140,7 +64,6 @@ class DemoDataSeeder extends Seeder
             ],
             [
                 'name' => 'Incorporation of Public Limited Company',
-                'icon' => 'building-office-2',
                 'items' => [
                     "Colour KYC of Promoters (PAN Card and Aadhar Card) (Minimum 7)\n(Minimum 3 Directors and 4 Subscribers)",
                     'DIN Number of Promoters (if available)',
@@ -153,7 +76,6 @@ class DemoDataSeeder extends Seeder
             ],
             [
                 'name' => 'Incorporation of Limited Liability Partnership Firm (LLP)',
-                'icon' => 'user-group',
                 'items' => [
                     'PAN Card of all Partners',
                     'Aadhar Card of all Partners',
@@ -166,7 +88,6 @@ class DemoDataSeeder extends Seeder
             ],
             [
                 'name' => 'GST Application of Partnership Deed',
-                'icon' => 'receipt-percent',
                 'items' => [
                     'Partnership Deed Original Scan Copy',
                     'PAN Card of Firm',
@@ -180,7 +101,6 @@ class DemoDataSeeder extends Seeder
             ],
             [
                 'name' => 'GST Application of Limited Liability Partnership Firm (LLP)',
-                'icon' => 'receipt-percent',
                 'items' => [
                     'LLP Deed Original Scan',
                     'LLP Incorporation Certificate',
@@ -196,7 +116,6 @@ class DemoDataSeeder extends Seeder
             ],
             [
                 'name' => 'GST Application of Private Limited Company / Public Limited Company',
-                'icon' => 'receipt-percent',
                 'items' => [
                     'Company Incorporation Certificate',
                     'PAN Card of Company',
@@ -211,7 +130,6 @@ class DemoDataSeeder extends Seeder
             ],
             [
                 'name' => 'GST Application of Individual',
-                'icon' => 'receipt-percent',
                 'items' => [
                     'Aadhar Card and PAN Card',
                     'Passport Size Photo',
@@ -223,7 +141,6 @@ class DemoDataSeeder extends Seeder
             ],
             [
                 'name' => 'ROF Registration (ROF)',
-                'icon' => 'clipboard-document-list',
                 'items' => [
                     'All Partners Aadhar Card',
                     'All Partners PAN Card',
@@ -236,7 +153,6 @@ class DemoDataSeeder extends Seeder
             ],
             [
                 'name' => 'RERA Project Registration',
-                'icon' => 'building-library',
                 'items' => [
                     'Photographs (Passport Size) (All Individual/Partners/Directors)',
                     'Copy of Partnership Deed/LLP Deed (Colour Scanned Copy)',
@@ -280,57 +196,28 @@ class DemoDataSeeder extends Seeder
         ];
 
         foreach ($data as $compData) {
-            $service = Service::create([
-                'name' => $compData['name'],
-                'slug' => Str::slug($compData['name']),
-                'icon' => $compData['icon'],
-                'description' => null,
-                'status' => 'active',
-            ]);
+            $service = Service::firstOrCreate(
+                ['name' => $compData['name']],
+                [
+                    'slug' => Str::slug($compData['name']),
+                    'description' => null,
+                    'status' => ServiceStatus::Active->value,
+                ]
+            );
 
             foreach ($compData['items'] as $index => $itemTitle) {
-                ServiceChecklistItem::create([
-                    'service_id' => $service->id,
-                    'title' => $itemTitle,
-                    'is_mandatory' => true,
-                    'allowed_file_types' => null,
-                    'sort_order' => $index,
-                    'status' => 'active',
-                ]);
-            }
-        }
-
-        // ──────────────────────────────────────────────
-        // PROJECTS
-        // ──────────────────────────────────────────────
-        $services = Service::all();
-        $statuses = ['in_progress', 'completed', 'on_hold'];
-
-        // Generate 30 projects
-        for ($i = 0; $i < 30; $i++) {
-            $client = $faker->randomElement($clients);
-            $service = $faker->randomElement($services);
-
-            $project = Project::create([
-                'client_id' => $client->id,
-                'project_name' => $client->company_name.' - '.$service->name,
-                'service_id' => $service->id,
-                'status' => $faker->randomElement($statuses),
-                'due_date' => $faker->dateTimeBetween('now', '+6 months')->format('Y-m-d'),
-            ]);
-
-            $items = ServiceChecklistItem::where('service_id', $service->id)
-                ->where('status', 'active')
-                ->orderBy('sort_order')
-                ->get();
-
-            foreach ($items as $item) {
-                ProjectChecklist::create([
-                    'project_id' => $project->id,
-                    'name' => $item->title,
-                    'is_mandatory' => $item->is_mandatory,
-                    'status' => $faker->randomElement(['Pending', 'Completed']),
-                ]);
+                ServiceChecklistItem::firstOrCreate(
+                    [
+                        'service_id' => $service->id,
+                        'title' => $itemTitle,
+                    ],
+                    [
+                        'description' => null,
+                        'is_mandatory' => true,
+                        'sort_order' => $index,
+                        'status' => ServiceChecklistItemStatus::Active->value,
+                    ]
+                );
             }
         }
     }

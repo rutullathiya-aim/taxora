@@ -27,11 +27,16 @@
                 :current="request()->routeIs('projects.*')" wire:navigate>Projects</flux:navlist.item>
             <flux:navlist.item variant="default" icon="shield-check" :href="route('services.index')"
                 :current="request()->routeIs('services.*')" wire:navigate>Services</flux:navlist.item>
-            @can('viewAny', App\Models\User::class)
-                <flux:navlist.item variant="default" icon="user-group" :href="route('team.index')"
-                    :current="request()->routeIs('team.*')" wire:navigate>Team</flux:navlist.item>
+            <flux:navlist.item variant="default" icon="user-group" :href="route('team.index')"
+                :current="request()->routeIs('team.*')" wire:navigate>Team</flux:navlist.item>
+            @can('viewAny', App\Models\Task::class)
+            <flux:navlist.item variant="default" icon="clipboard-document-list" :href="route('tasks.index')"
+                :current="request()->routeIs('tasks.index') || request()->routeIs('tasks.show')" wire:navigate>Tasks</flux:navlist.item>
             @endcan
-            <flux:navlist.item variant="default" icon="clipboard-document-list" href="#">Tasks</flux:navlist.item>
+            @if(auth()->user()->hasRole('manager') || auth()->user()->hasRole('staff'))
+            <flux:navlist.item variant="default" icon="clipboard-document-check" :href="route('tasks.my')"
+                :current="request()->routeIs('tasks.my')" wire:navigate>My Tasks</flux:navlist.item>
+            @endif
             <flux:navlist.item variant="default" icon="cog-6-tooth" :href="route('settings.profile')"
                 :current="request()->routeIs('settings.*')" wire:navigate>Settings</flux:navlist.item>
         </flux:navlist>
@@ -52,7 +57,7 @@
         <div class="flex-1" x-data="{ heading: '{{ addslashes($heading ?? '') }}' }"
             @update-heading.window="heading = $event.detail">
             @if(isset($heading))
-                <flux:heading size="xl" class="hidden lg:block" x-text="heading">{{ $heading }}</flux:heading>
+            <flux:heading size="xl" class="hidden lg:block" x-text="heading">{{ $heading }}</flux:heading>
             @endif
         </div>
 

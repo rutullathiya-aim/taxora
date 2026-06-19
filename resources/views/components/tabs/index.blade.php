@@ -1,11 +1,11 @@
 @props([
-    'default' => null,
-    'wire' => null,
+'default' => null,
+'wire' => null,
 ])
 
-<div 
+<div
     x-data="{
-        activeTab: @if($wire) @entangle($wire) @else '{{ $default }}' @endif,
+        activeTab: @if($wire) @entangle($wire).live @else '{{ $default }}' @endif,
         tabs: [],
         tabElements: [],
         registerTab(name, el) {
@@ -34,7 +34,6 @@
             this.focusTab(prev);
         },
     }"
-    {{ $attributes->merge(['class' => 'block']) }}
->
+    {{ $attributes->merge(['class' => 'block']) }}>
     {{ $slot }}
 </div>

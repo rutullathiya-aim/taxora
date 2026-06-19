@@ -1,10 +1,4 @@
 @php
-    $projectStatuses = [
-        'draft' => ['label' => 'Draft', 'bg' => 'bg-zinc-100 dark:bg-zinc-700', 'text' => 'text-zinc-600 dark:text-zinc-300'],
-        'in_progress' => ['label' => 'In Progress', 'bg' => 'bg-blue-50 dark:bg-blue-500/10', 'text' => 'text-blue-700 dark:text-blue-400'],
-        'submitted' => ['label' => 'Submitted', 'bg' => 'bg-amber-50 dark:bg-amber-500/10', 'text' => 'text-amber-700 dark:text-amber-400'],
-        'approved' => ['label' => 'Approved', 'bg' => 'bg-emerald-50 dark:bg-emerald-500/10', 'text' => 'text-emerald-700 dark:text-emerald-400'],
-    ];
 
     $activityConfig = [
         'Approved' => ['verb' => 'approved', 'dot' => 'bg-emerald-500', 'icon' => 'check-circle'],
@@ -30,161 +24,122 @@
         {{-- KPI OVERVIEW CARDS --}}
         {{-- ═══════════════════════════════════════════════════════════════════════ --}}
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-5 my-6">
+            <a href="{{ route('clients.index') }}" wire:navigate class="block outline-none">
+                <x-stat-card icon="users" color="violet" heading="Total Clients" :value="$totalClients" />
+            </a>
+            
+            <a href="{{ route('projects.index') }}" wire:navigate class="block outline-none">
+                <x-stat-card icon="folder-open" color="blue" heading="Active Projects" :value="$activeProjects">
+                    <flux:badge color="zinc" size="sm">of {{ $totalProjects }}</flux:badge>
+                </x-stat-card>
+            </a>
 
-            {{-- Card 1: Total Clients --}}
-            <div
-                class="group bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-5 hover:shadow-md transition-all duration-300">
+            <a href="{{ route('projects.index') }}" wire:navigate class="block outline-none">
+                <x-stat-card icon="document-text" color="amber" heading="Pending Documents" :value="$pendingDocuments" />
+            </a>
+
+            <a href="{{ route('projects.index') }}" wire:navigate class="block outline-none">
+                <x-stat-card icon="clock" color="rose" heading="Upcoming Deadlines" :value="$upcomingCount" />
+            </a>
+
+            <a href="{{ route('projects.index') }}" wire:navigate class="block outline-none">
+                <x-stat-card icon="check-circle" color="emerald" heading="Completed Filings" :value="$completedFilings">
+                    <flux:badge color="zinc" size="sm">of {{ $totalChecklists }}</flux:badge>
+                </x-stat-card>
+            </a>
+
+            <a href="{{ route('projects.index') }}" wire:navigate class="block outline-none">
+                <x-stat-card icon="chart-bar" color="cyan" heading="Compliance Rate" :value="$complianceRate . '%'" />
+            </a>
+        </div>
+
+        {{-- ═══════════════════════════════════════════════════════════════════════ --}}
+        {{-- TASKS OVERVIEW --}}
+        {{-- ═══════════════════════════════════════════════════════════════════════ --}}
+        
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            {{-- Task Metrics --}}
+            <flux:card class="lg:col-span-4 flex flex-col">
                 <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center justify-center size-10 rounded-lg bg-violet-50 dark:bg-violet-500/10">
-                        <flux:icon name="users" class="size-5 text-violet-600 dark:text-violet-400" />
-                    </div>
-                    <span class="text-xs font-medium text-zinc-400 dark:text-zinc-500">Registered</span>
+                    <flux:heading size="lg">Task Overview</flux:heading>
+                    <flux:badge size="sm" color="zinc">{{ $totalTasks }} Total</flux:badge>
                 </div>
-                <div class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-                    {{ $totalClients }}
+                
+                <div class="grid grid-cols-2 gap-4 flex-1">
+                    <a href="{{ route('tasks.index') }}" wire:navigate class="block bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-3 border border-zinc-100 dark:border-zinc-700 hover:border-zinc-300 transition outline-none">
+                        <div class="text-xs text-zinc-500 mb-1">To Do</div>
+                        <div class="text-lg font-semibold">{{ $todoTasks }}</div>
+                    </a>
+                    <a href="{{ route('tasks.index') }}" wire:navigate class="block bg-blue-50 dark:bg-blue-500/10 rounded-lg p-3 border border-blue-100 dark:border-blue-500/20 hover:border-blue-300 transition outline-none">
+                        <div class="text-xs text-blue-600 dark:text-blue-400 mb-1">In Progress</div>
+                        <div class="text-lg font-semibold text-blue-700 dark:text-blue-300">{{ $inProgressTasks }}</div>
+                    </a>
+                    <a href="{{ route('tasks.index') }}" wire:navigate class="block bg-emerald-50 dark:bg-emerald-500/10 rounded-lg p-3 border border-emerald-100 dark:border-emerald-500/20 hover:border-emerald-300 transition outline-none">
+                        <div class="text-xs text-emerald-600 dark:text-emerald-400 mb-1">Completed</div>
+                        <div class="text-lg font-semibold text-emerald-700 dark:text-emerald-300">{{ $completedTasks }}</div>
+                    </a>
+                    <a href="{{ route('tasks.index') }}" wire:navigate class="block bg-rose-50 dark:bg-rose-500/10 rounded-lg p-3 border border-rose-100 dark:border-rose-500/20 hover:border-rose-300 transition outline-none">
+                        <div class="text-xs text-rose-600 dark:text-rose-400 mb-1">Overdue</div>
+                        <div class="text-lg font-semibold text-rose-700 dark:text-rose-300">{{ $overdueTasks }}</div>
+                    </a>
                 </div>
-                <div class="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Total Clients</div>
-                @if($sparklines['clients']['line'])
-                    <div class="mt-4 text-violet-300 dark:text-violet-500/60">
-                        <svg class="w-full h-8" viewBox="0 0 100 32" preserveAspectRatio="none" fill="none">
-                            <polygon points="{{ $sparklines['clients']['area'] }}" fill="currentColor" opacity="0.3" />
-                            <polyline points="{{ $sparklines['clients']['line'] }}" stroke="currentColor" stroke-width="1.5"
-                                stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
-                        </svg>
-                    </div>
-                @endif
-            </div>
-
-            {{-- Card 2: Active Projects --}}
-            <div
-                class="group bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-5 hover:shadow-md transition-all duration-300">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center justify-center size-10 rounded-lg bg-blue-50 dark:bg-blue-500/10">
-                        <flux:icon name="folder-open" class="size-5 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <span class="text-xs font-medium text-zinc-400 dark:text-zinc-500">of {{ $totalProjects }}
-                        total</span>
+                
+                <div class="mt-4">
+                    <flux:button href="{{ route('tasks.index') }}" wire:navigate variant="ghost" size="sm" class="w-full">
+                        View All Tasks &rarr;
+                    </flux:button>
                 </div>
-                <div class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-                    {{ $activeProjects }}
-                </div>
-                <div class="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Active Projects</div>
-                @if($sparklines['projects']['line'])
-                    <div class="mt-4 text-blue-300 dark:text-blue-500/60">
-                        <svg class="w-full h-8" viewBox="0 0 100 32" preserveAspectRatio="none" fill="none">
-                            <polygon points="{{ $sparklines['projects']['area'] }}" fill="currentColor" opacity="0.3" />
-                            <polyline points="{{ $sparklines['projects']['line'] }}" stroke="currentColor"
-                                stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-                                vector-effect="non-scaling-stroke" />
-                        </svg>
+            </flux:card>
+            
+            {{-- Recent Tasks --}}
+            <flux:card class="lg:col-span-8 flex flex-col !p-0 overflow-hidden">
+                <div class="flex items-center justify-between p-5 border-b border-zinc-100 dark:border-zinc-700/50">
+                    <div>
+                        <flux:heading size="lg">Recent Tasks</flux:heading>
+                        <flux:subheading>Latest assigned tasks</flux:subheading>
                     </div>
-                @endif
-            </div>
-
-            {{-- Card 3: Pending Documents --}}
-            <div
-                class="group bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-5 hover:shadow-md transition-all duration-300">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center justify-center size-10 rounded-lg bg-amber-50 dark:bg-amber-500/10">
-                        <flux:icon name="document-text" class="size-5 text-amber-600 dark:text-amber-400" />
-                    </div>
-                    <span class="text-xs font-medium text-amber-600 dark:text-amber-400">Awaiting action</span>
+                    <flux:button href="{{ route('tasks.index') }}" wire:navigate size="sm" variant="ghost">See all</flux:button>
                 </div>
-                <div class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-                    {{ $pendingDocuments }}
+                
+                <div class="divide-y divide-zinc-50 dark:divide-zinc-700/30 flex-1">
+                    @forelse($recentTasks as $task)
+                        <div class="p-5 hover:bg-zinc-50/50 dark:hover:bg-zinc-700/20 transition-colors">
+                            <div class="flex items-center justify-between gap-4">
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="text-xs font-medium text-zinc-500">{{ $task->task_number }}</span>
+                                        <a href="{{ route('tasks.show', $task) }}" wire:navigate class="text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:text-violet-600 truncate">
+                                            {{ $task->title }}
+                                        </a>
+                                    </div>
+                                    <div class="flex items-center gap-3 text-xs text-zinc-500">
+                                        @if($task->client)
+                                            <span class="flex items-center gap-1"><flux:icon.building-office class="size-3" /> {{ Str::limit($task->client->company_name ?? $task->client->client_name, 20) }}</span>
+                                        @endif
+                                        @if($task->project)
+                                            <span class="flex items-center gap-1"><flux:icon.folder class="size-3" /> {{ Str::limit($task->project->project_name, 20) }}</span>
+                                        @endif
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-4 shrink-0">
+                                    <flux:badge :color="$task->status->color()" size="sm">{{ $task->status->label() }}</flux:badge>
+                                    <div class="text-right w-24">
+                                        <div class="text-xs font-medium {{ $task->isOverdue ? 'text-rose-600' : 'text-zinc-600 dark:text-zinc-400' }}">
+                                            {{ $task->due_at ? $task->due_at->format('d M') : '-' }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="p-5 text-center">
+                            <flux:icon name="clipboard-document-list" class="size-8 mx-auto mb-2 text-zinc-300 dark:text-zinc-600" />
+                            <flux:subheading>No recent tasks</flux:subheading>
+                        </div>
+                    @endforelse
                 </div>
-                <div class="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Pending Documents</div>
-                @if($sparklines['pending']['line'])
-                    <div class="mt-4 text-amber-300 dark:text-amber-500/60">
-                        <svg class="w-full h-8" viewBox="0 0 100 32" preserveAspectRatio="none" fill="none">
-                            <polygon points="{{ $sparklines['pending']['area'] }}" fill="currentColor" opacity="0.3" />
-                            <polyline points="{{ $sparklines['pending']['line'] }}" stroke="currentColor" stroke-width="1.5"
-                                stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
-                        </svg>
-                    </div>
-                @endif
-            </div>
-
-            {{-- Card 4: Upcoming Deadlines --}}
-            <div
-                class="group bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-5 hover:shadow-md transition-all duration-300">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center justify-center size-10 rounded-lg bg-rose-50 dark:bg-rose-500/10">
-                        <flux:icon name="clock" class="size-5 text-rose-600 dark:text-rose-400" />
-                    </div>
-                    <span class="text-xs font-medium text-zinc-400 dark:text-zinc-500">Next 30 days</span>
-                </div>
-                <div class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-                    {{ $upcomingCount }}
-                </div>
-                <div class="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Upcoming Deadlines</div>
-                @if($sparklines['deadlines']['line'])
-                    <div class="mt-4 text-rose-300 dark:text-rose-500/60">
-                        <svg class="w-full h-8" viewBox="0 0 100 32" preserveAspectRatio="none" fill="none">
-                            <polygon points="{{ $sparklines['deadlines']['area'] }}" fill="currentColor" opacity="0.3" />
-                            <polyline points="{{ $sparklines['deadlines']['line'] }}" stroke="currentColor"
-                                stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-                                vector-effect="non-scaling-stroke" />
-                        </svg>
-                    </div>
-                @endif
-            </div>
-
-            {{-- Card 5: Completed Filings --}}
-            <div
-                class="group bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-5 hover:shadow-md transition-all duration-300">
-                <div class="flex items-center justify-between mb-4">
-                    <div
-                        class="flex items-center justify-center size-10 rounded-lg bg-emerald-50 dark:bg-emerald-500/10">
-                        <flux:icon name="check-circle" class="size-5 text-emerald-600 dark:text-emerald-400" />
-                    </div>
-                    <span class="text-xs font-medium text-emerald-600 dark:text-emerald-400">of
-                        {{ $totalChecklists }} filings</span>
-                </div>
-                <div class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-                    {{ $completedFilings }}
-                </div>
-                <div class="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Completed Filings</div>
-                @if($sparklines['completed']['line'])
-                    <div class="mt-4 text-emerald-300 dark:text-emerald-500/60">
-                        <svg class="w-full h-8" viewBox="0 0 100 32" preserveAspectRatio="none" fill="none">
-                            <polygon points="{{ $sparklines['completed']['area'] }}" fill="currentColor" opacity="0.3" />
-                            <polyline points="{{ $sparklines['completed']['line'] }}" stroke="currentColor"
-                                stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-                                vector-effect="non-scaling-stroke" />
-                        </svg>
-                    </div>
-                @endif
-            </div>
-
-            {{-- Card 6: Compliance Rate --}}
-            <div
-                class="group bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-5 hover:shadow-md transition-all duration-300">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center justify-center size-10 rounded-lg bg-cyan-50 dark:bg-cyan-500/10">
-                        <flux:icon name="chart-bar" class="size-5 text-cyan-600 dark:text-cyan-400" />
-                    </div>
-                    <span
-                        class="text-xs font-medium {{ $complianceRate >= 50 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400' }}">
-                        {{ $complianceRate >= 70 ? 'Healthy' : ($complianceRate >= 40 ? 'Moderate' : 'Needs attention') }}
-                    </span>
-                </div>
-                <div class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-                    {{ $complianceRate }}<span class="text-lg font-semibold text-zinc-400">%</span>
-                </div>
-                <div class="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Compliance Rate</div>
-                @if($sparklines['rate']['line'])
-                    <div class="mt-4 text-cyan-300 dark:text-cyan-500/60">
-                        <svg class="w-full h-8" viewBox="0 0 100 32" preserveAspectRatio="none" fill="none">
-                            <polygon points="{{ $sparklines['rate']['area'] }}" fill="currentColor" opacity="0.3" />
-                            <polyline points="{{ $sparklines['rate']['line'] }}" stroke="currentColor" stroke-width="1.5"
-                                stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
-                        </svg>
-                    </div>
-                @endif
-            </div>
-
+            </flux:card>
         </div>
 
         {{-- ═══════════════════════════════════════════════════════════════════════ --}}
@@ -194,44 +149,37 @@
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
             {{-- Service Health --}}
-            <div
-                class="lg:col-span-8 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
-                <div
-                    class="flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-700/50">
+            <flux:card class="lg:col-span-8 flex flex-col !p-0 overflow-hidden">
+                <div class="flex items-center justify-between p-5 border-b border-zinc-100 dark:border-zinc-700/50">
                     <div>
-                        <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Service Health
-                        </h2>
-                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Filing progress across
-                            service types</p>
+                        <flux:heading size="lg">Service Health</flux:heading>
+                        <flux:subheading>Filing progress across service types</flux:subheading>
                     </div>
-                    <span class="text-xs text-zinc-400">{{ $serviceHealth->count() }} active</span>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs text-zinc-400">{{ $serviceHealth->count() }} active</span>
+                        <flux:button href="{{ route('services.index') }}" wire:navigate size="sm" variant="ghost">See all</flux:button>
+                    </div>
                 </div>
                 <div class="p-5 space-y-5">
                     @forelse($serviceHealth as $item)
                         <div>
                             <div class="flex items-center justify-between mb-2">
                                 <div class="flex items-center gap-2.5">
-                                    <div
-                                        class="flex items-center justify-center size-7 rounded-md bg-zinc-50 dark:bg-zinc-700/50">
-                                        <flux:icon :name="$item['icon'] ?: 'briefcase'"
-                                            class="size-3.5 text-zinc-500 dark:text-zinc-400" />
+                                    <div class="flex items-center justify-center size-7 rounded-md bg-zinc-50 dark:bg-zinc-700/50">
+                                        <flux:icon :name="$item['icon'] ?: 'briefcase'" class="size-3.5 text-zinc-500 dark:text-zinc-400" />
                                     </div>
-                                    <span
-                                        class="text-sm font-medium text-zinc-700 dark:text-zinc-300">{{ $item['name'] }}</span>
+                                    <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">{{ $item['name'] }}</span>
                                 </div>
                                 <div class="flex items-center gap-3">
-                                    <span class="text-xs text-zinc-400">{{ $item['projects_count'] }}
-                                        {{ Str::plural('project', $item['projects_count']) }}</span>
-                                    <span
-                                        class="text-xs font-semibold tabular-nums {{ $item['rate'] >= 60 ? 'text-emerald-600 dark:text-emerald-400' : ($item['rate'] >= 30 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400') }}">{{ $item['rate'] }}%</span>
+                                    <span class="text-xs text-zinc-400">{{ $item['projects_count'] }} {{ Str::plural('project', $item['projects_count']) }}</span>
+                                    <span class="text-xs font-semibold tabular-nums {{ $item['rate'] >= 60 ? 'text-emerald-600 dark:text-emerald-400' : ($item['rate'] >= 30 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400') }}">{{ $item['rate'] }}%</span>
                                 </div>
                             </div>
                             <div class="h-1.5 bg-zinc-100 dark:bg-zinc-700 rounded-full overflow-hidden">
                                 @php
                                     $barColor = $item['rate'] >= 60 ? 'bg-emerald-500 dark:bg-emerald-400' : ($item['rate'] >= 30 ? 'bg-amber-500 dark:bg-amber-400' : 'bg-rose-500 dark:bg-rose-400');
                                 @endphp
-                                <div class="h-full {{ $barColor }} rounded-full transition-all duration-700"
-                                    style="width: {{ $item['rate'] }}%"></div>
+                                <div class="h-full {{ $barColor }} rounded-full transition-all duration-700" style="width: {{ $item['rate'] }}%"></div>
                             </div>
                             <div class="flex items-center gap-3 mt-1.5 text-xs text-zinc-400">
                                 <span>{{ $item['completed'] }} completed</span>
@@ -246,14 +194,13 @@
                         </div>
                     @endforelse
                 </div>
-            </div>
+            </flux:card>
 
             {{-- Document Status Distribution --}}
-            <div
-                class="lg:col-span-4 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
-                <div class="px-5 py-4 border-b border-zinc-100 dark:border-zinc-700/50">
-                    <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Document Status</h2>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Breakdown of all filings</p>
+            <flux:card class="lg:col-span-4 flex flex-col !p-0 overflow-hidden">
+                <div class="p-5 border-b border-zinc-100 dark:border-zinc-700/50">
+                    <flux:heading size="lg">Document Status</flux:heading>
+                    <flux:subheading>Breakdown of all filings</flux:subheading>
                 </div>
                 <div class="p-5">
                     {{-- Stacked bar overview --}}
@@ -262,8 +209,7 @@
                             @foreach($documentStatuses as $ds)
                                 @php $dsWidth = round(((int) $statusCounts->get($ds['key'], 0) / $totalChecklists) * 100, 1); @endphp
                                 @if($dsWidth > 0)
-                                    <div class="{{ $ds['color'] }}" style="width: {{ $dsWidth }}%"
-                                        title="{{ $ds['label'] }}: {{ $statusCounts->get($ds['key'], 0) }}"></div>
+                                    <div class="{{ $ds['color'] }}" style="width: {{ $dsWidth }}%" title="{{ $ds['label'] }}: {{ $statusCounts->get($ds['key'], 0) }}"></div>
                                 @endif
                             @endforeach
                         </div>
@@ -279,18 +225,15 @@
                                 <div class="flex items-center justify-between mb-1">
                                     <div class="flex items-center gap-2">
                                         <span class="size-2 rounded-full {{ $ds['color'] }}"></span>
-                                        <span
-                                            class="text-xs font-medium text-zinc-600 dark:text-zinc-300">{{ $ds['label'] }}</span>
+                                        <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">{{ $ds['label'] }}</span>
                                     </div>
                                     <div class="flex items-center gap-2">
-                                        <span
-                                            class="text-xs font-semibold {{ $ds['text'] }} tabular-nums">{{ $dsCount }}</span>
+                                        <span class="text-xs font-semibold {{ $ds['text'] }} tabular-nums">{{ $dsCount }}</span>
                                         <span class="text-xs text-zinc-400 tabular-nums w-8 text-right">{{ $dsPct }}%</span>
                                     </div>
                                 </div>
                                 <div class="h-1 bg-zinc-100 dark:bg-zinc-700 rounded-full overflow-hidden">
-                                    <div class="{{ $ds['color'] }} h-full rounded-full transition-all duration-500"
-                                        style="width: {{ $dsPct }}%"></div>
+                                    <div class="{{ $ds['color'] }} h-full rounded-full transition-all duration-500" style="width: {{ $dsPct }}%"></div>
                                 </div>
                             </div>
                         @endforeach
@@ -303,7 +246,7 @@
                         </div>
                     </div>
                 </div>
-            </div>
+            </flux:card>
 
         </div>
 
@@ -311,15 +254,13 @@
         {{-- PROJECT STATUS TABLE --}}
         {{-- ═══════════════════════════════════════════════════════════════════════ --}}
 
-        <div class="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
-            <div class="flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-700/50">
+        <flux:card class="!p-0 overflow-hidden">
+            <div class="flex items-center justify-between p-5 border-b border-zinc-100 dark:border-zinc-700/50">
                 <div>
-                    <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Project Status</h2>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Overview of recent project
-                        activity</p>
+                    <flux:heading size="lg">Project Status</flux:heading>
+                    <flux:subheading>Overview of recent project activity</flux:subheading>
                 </div>
-                <span class="text-xs text-zinc-400">{{ $recentProjects->count() }}
-                    {{ Str::plural('project', $recentProjects->count()) }}</span>
+                <span class="text-xs text-zinc-400">{{ $recentProjects->count() }} {{ Str::plural('project', $recentProjects->count()) }}</span>
             </div>
 
             <flux:table>
@@ -335,10 +276,9 @@
                 <flux:table.rows>
                     @forelse($recentProjects as $project)
                         @php
-                            $pTotal = $project->projectChecklists->count();
-                            $pDone = $project->projectChecklists->whereIn('status', ['Approved', 'Not Applicable'])->count();
+                            $pTotal = $project->checklists->count();
+                            $pDone = $project->checklists->whereIn('status', ['Approved', 'Not Applicable'])->count();
                             $pPct = $pTotal > 0 ? round(($pDone / $pTotal) * 100) : 0;
-                            $pStatus = $projectStatuses[$project->status] ?? $projectStatuses['draft'];
                         @endphp
                         <flux:table.row>
                             <flux:table.cell>
@@ -350,9 +290,9 @@
                             </flux:table.cell>
                             <flux:table.cell>
                                 <div class="flex items-center gap-2">
-                                    <flux:avatar circle size="xs" name="{{ $project->client->client_name }}" color="auto" />
+                                    <flux:avatar circle size="xs" name="{{ $project->client?->client_name ?? 'Unknown Client' }}" color="auto" />
                                     <span
-                                        class="text-zinc-600 dark:text-zinc-400">{{ $project->client->client_name }}</span>
+                                        class="text-zinc-600 dark:text-zinc-400">{{ $project->client?->client_name ?? 'Unknown Client' }}</span>
                                 </div>
                             </flux:table.cell>
                             <flux:table.cell>
@@ -360,10 +300,9 @@
                                     class="text-xs text-zinc-500 dark:text-zinc-400">{{ $project->service?->name ?? '—' }}</span>
                             </flux:table.cell>
                             <flux:table.cell>
-                                <span
-                                    class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full {{ $pStatus['bg'] }} {{ $pStatus['text'] }}">
-                                    {{ $pStatus['label'] }}
-                                </span>
+                                <flux:badge :color="$project->status?->color()" size="sm">
+                                    {{ $project->status?->label() ?? 'Unknown' }}
+                                </flux:badge>
                             </flux:table.cell>
                             <flux:table.cell>
                                 <div class="flex items-center gap-2 min-w-[100px]">
@@ -410,7 +349,7 @@
                     @endforelse
                 </flux:table.rows>
             </flux:table>
-        </div>
+        </flux:card>
 
         {{-- ═══════════════════════════════════════════════════════════════════════ --}}
         {{-- UPCOMING DEADLINES & RECENT ACTIVITY --}}
@@ -419,15 +358,12 @@
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
             {{-- Upcoming Deadlines --}}
-            <div
-                class="lg:col-span-5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
-                <div
-                    class="flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-700/50">
+            {{-- Upcoming Deadlines --}}
+            <flux:card class="lg:col-span-5 flex flex-col !p-0 overflow-hidden">
+                <div class="flex items-center justify-between p-5 border-b border-zinc-100 dark:border-zinc-700/50">
                     <div>
-                        <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Upcoming Deadlines
-                        </h2>
-                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Due dates approaching
-                        </p>
+                        <flux:heading size="lg">Upcoming Deadlines</flux:heading>
+                        <flux:subheading>Due dates approaching</flux:subheading>
                     </div>
                 </div>
                 <div class="divide-y divide-zinc-50 dark:divide-zinc-700/30">
@@ -442,15 +378,15 @@
                                 default => 'border-l-emerald-500',
                             };
                         @endphp
-                        <div
-                            class="px-5 py-3.5 border-l-2 {{ $urgencyBorder }} hover:bg-zinc-50/50 dark:hover:bg-zinc-700/20 transition-colors">
+                        <a href="{{ route('projects.show', $dl) }}" wire:navigate
+                            class="block px-5 py-3.5 border-l-2 {{ $urgencyBorder }} hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-colors cursor-pointer outline-none">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0 flex-1">
-                                    <p class="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                                    <p class="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
                                         {{ $dl->project_name }}
                                     </p>
                                     <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                                        {{ $dl->client->client_name }} · {{ $dl->service?->name }}
+                                        {{ $dl->client?->client_name ?? 'Unknown Client' }} · {{ $dl->service?->name ?? '—' }}
                                     </p>
                                 </div>
                                 <div class="text-right shrink-0">
@@ -470,7 +406,7 @@
                                     </p>
                                 </div>
                             </div>
-                        </div>
+                        </a>
                     @empty
                         <div class="p-5 text-center">
                             <flux:icon name="calendar" class="size-8 mx-auto mb-2 text-zinc-300 dark:text-zinc-600" />
@@ -478,17 +414,14 @@
                         </div>
                     @endforelse
                 </div>
-            </div>
+            </flux:card>
 
             {{-- Recent Activity Feed --}}
-            <div
-                class="lg:col-span-7 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
-                <div
-                    class="flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-700/50">
+            <flux:card class="lg:col-span-7 flex flex-col !p-0 overflow-hidden">
+                <div class="flex items-center justify-between p-5 border-b border-zinc-100 dark:border-zinc-700/50">
                     <div>
-                        <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Recent Activity</h2>
-                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Latest service and
-                            document updates</p>
+                        <flux:heading size="lg">Recent Activity</flux:heading>
+                        <flux:subheading>Latest service and document updates</flux:subheading>
                     </div>
                 </div>
                 <div class="p-5">
@@ -500,18 +433,17 @@
                         <div class="space-y-5">
                             @forelse($recentActivity as $activity)
                                 @php
-                                    $ac = $activityConfig[$activity->status] ?? ['verb' => 'updated', 'dot' => 'bg-zinc-400', 'icon' => 'document-text'];
+                                    $statusValue = $activity->status instanceof \UnitEnum ? $activity->status->value : $activity->status;
+                                    $ac = $activityConfig[$statusValue] ?? ['verb' => 'updated', 'dot' => 'bg-zinc-400', 'icon' => 'document-text'];
                                 @endphp
                                 <div class="relative">
                                     {{-- Timeline dot --}}
-                                    <div
-                                        class="absolute -left-6 top-0.5 size-[9px] rounded-full ring-2 ring-white dark:ring-zinc-800 {{ $ac['dot'] }}">
+                                    <div class="absolute -left-6 top-0.5 size-[9px] rounded-full ring-2 ring-white dark:ring-zinc-800 {{ $ac['dot'] }}">
                                     </div>
 
-                                    <div>
+                                    <a @if($activity->project) href="{{ route('projects.show', $activity->project) }}" wire:navigate @endif class="block group outline-none">
                                         <p class="text-sm text-zinc-700 dark:text-zinc-300">
-                                            <span
-                                                class="font-medium text-zinc-900 dark:text-zinc-100">{{ Str::limit($activity->name, 30) }}</span>
+                                            <span class="font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">{{ Str::limit($activity->name, 30) }}</span>
                                             <span class="text-zinc-500 dark:text-zinc-400"> {{ $ac['verb'] }}</span>
                                         </p>
                                         <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
@@ -519,7 +451,7 @@
                                             <span class="mx-1">·</span>
                                             {{ $activity->updated_at->diffForHumans() }}
                                         </p>
-                                    </div>
+                                    </a>
                                 </div>
                             @empty
                                 <div class="text-center py-6">
@@ -530,7 +462,7 @@
                         </div>
                     </div>
                 </div>
-            </div>
+            </flux:card>
 
         </div>
 
@@ -538,11 +470,10 @@
         {{-- PERFORMANCE INSIGHTS --}}
         {{-- ═══════════════════════════════════════════════════════════════════════ --}}
 
-        <div class="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
-            <div class="px-5 py-4 border-b border-zinc-100 dark:border-zinc-700/50">
-                <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Performance Insights</h2>
-                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Key operational metrics and filing
-                    analytics</p>
+        <flux:card class="!p-0 overflow-hidden">
+            <div class="p-5 border-b border-zinc-100 dark:border-zinc-700/50">
+                <flux:heading size="lg">Performance Insights</flux:heading>
+                <flux:subheading>Key operational metrics and filing analytics</flux:subheading>
             </div>
             <div class="grid grid-cols-2 lg:grid-cols-4 divide-x divide-zinc-100 dark:divide-zinc-700/50">
 
@@ -631,6 +562,6 @@
                 </div>
 
             </div>
-        </div>
+        </flux:card>
 
 </div>

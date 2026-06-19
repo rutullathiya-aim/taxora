@@ -68,7 +68,7 @@ new #[Layout('components.layouts.auth')] class extends Component {
      */
     protected function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->email).'|'.request()->ip());
+        return Str::transliterate(Str::lower($this->email) . '|' . request()->ip());
     }
 }; ?>
 
@@ -91,13 +91,12 @@ new #[Layout('components.layouts.auth')] class extends Component {
                 name="password"
                 required
                 autocomplete="current-password"
-                placeholder="Password"
-            />
+                placeholder="Password" />
 
             @if (Route::has('password.request'))
-                <x-text-link class="absolute right-0 top-0" href="{{ route('password.request') }}">
-                    {{ __('Forgot your password?') }}
-                </x-text-link>
+            <x-text-link class="absolute right-0 top-0" href="{{ route('password.request') }}">
+                {{ __('Forgot your password?') }}
+            </x-text-link>
             @endif
         </div>
 
@@ -107,10 +106,10 @@ new #[Layout('components.layouts.auth')] class extends Component {
         <div class="flex items-center justify-end">
             <flux:button variant="primary" type="submit" class="w-full">{{ __('Log in') }}</flux:button>
         </div>
-    </form>
-
+        {{--
     <div class="space-x-1 text-center text-sm text-zinc-600 dark:text-zinc-400">
         Don't have an account?
         <x-text-link href="{{ route('register') }}">Sign up</x-text-link>
-    </div>
+</div>
+--}}
 </div>

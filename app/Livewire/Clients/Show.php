@@ -2,212 +2,324 @@
 
 namespace App\Livewire\Clients;
 
+use App\Enums\ChecklistStatus;
+use App\Enums\CrudAction;
+use App\Enums\ListFilter;
+use App\Enums\ProjectSort;
+use App\Enums\ProjectStatus;
+use App\Enums\TaskPriority;
+use App\Enums\TaskSort;
+use App\Enums\TaskStatus;
+use App\Livewire\Projects\HasProjectActions;
 use App\Models\Client;
-use App\Models\ClientDocument;
-use Flux\Flux;
-use Illuminate\Support\Facades\Storage;
+use App\Models\Project;
+use App\Models\Task;
+use App\Queries\ProjectQueries;
+use App\Queries\TaskQueries;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\View\View;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 
 class Show extends Component
 {
-    use WithFileUploads, WithPagination;
+    use HasClientActions, HasProjectActions, WithPagination;
+
+    private const VALID_TABS = [
+        'projects',
+        'tasks',
+        'documents',
+    ];
+
+    public int $perPage = 10;
+
+    private const PROJECT_RESET_PROPERTIES = [
+        'projectSearch',
+        'projectStatusFilter',
+        'projectSortBy',
+    ];
+
+    private const TASK_RESET_PROPERTIES = [
+        'taskSearch',
+        'taskStatusFilter',
+        'taskPriorityFilter',
+        'taskSortBy',
+    ];
 
     public Client $client;
 
+    #[Url(keep: true)]
     public string $currentTab = 'projects';
 
-    // Project Filters
+    #[Url(except: '')]
     public string $projectSearch = '';
 
-    public string $projectStatusFilter = 'all';
+    #[Url(as: 'projectStatus', except: 'active')]
+    public string $projectStatusFilter = 'active';
 
+    #[Url(except: 'latest')]
     public string $projectSortBy = 'latest';
 
-    // Document Filters
-    public string $documentSearch = '';
+    #[Url(except: '')]
+    public string $taskSearch = '';
 
-    public string $documentSortBy = 'latest';
+    #[Url(as: 'taskStatus', except: 'open')]
+    public string $taskStatusFilter = 'open';
 
-    // Document Upload
-    public $newDocuments = [];
+    #[Url(as: 'taskPriority', except: 'all')]
+    public string $taskPriorityFilter = 'all';
 
-    // Modals
-    public bool $showPreviewModal = false;
-
-    public ?string $previewDocumentId = null;
-
-    public bool $showDeleteModal = false;
-
-    public ?string $deleteDocumentId = null;
+    #[Url(except: 'latest')]
+    public string $taskSortBy = 'latest';
 
     public function mount(Client $client): void
     {
-        $this->client = $client->load(['projects.service', 'clientDocuments']);
+        $this->perPage = auth()->user()?->getPreference('per_page', 10) ?? 10;
+        $this->authorize('view', $client);
+        $this->client = $client;
+
+        if (! in_array($this->currentTab, self::VALID_TABS, true)) {
+            $this->currentTab = 'projects';
+        }
+
+        if (! self::isValidProjectSort($this->projectSortBy)) {
+            $this->projectSortBy = ProjectSort::Latest->value;
+        }
+
+        if (! self::isValidProjectStatus($this->projectStatusFilter)) {
+            $this->projectStatusFilter = ProjectStatus::Active->value;
+        }
+
+        if (! self::isValidTaskSort($this->taskSortBy)) {
+            $this->taskSortBy = TaskSort::Latest->value;
+        }
+
+        if (! self::isValidTaskStatus($this->taskStatusFilter)) {
+            $this->taskStatusFilter = 'open';
+        }
+
+        if (! self::isValidTaskPriority($this->taskPriorityFilter)) {
+            $this->taskPriorityFilter = 'all';
+        }
+    }
+
+    private static function isValidProjectSort(string $sort): bool
+    {
+        return ProjectSort::tryFrom($sort) !== null;
+    }
+
+    private static function isValidProjectStatus(string $status): bool
+    {
+        $allowed = [
+            ...array_keys(ProjectStatus::options()),
+            ...array_keys(ListFilter::options()),
+        ];
+
+        return in_array($status, $allowed, true);
+    }
+
+    private static function isValidTaskSort(string $sort): bool
+    {
+        return TaskSort::tryFrom($sort) !== null;
+    }
+
+    private static function isValidTaskStatus(string $status): bool
+    {
+        $allowed = [
+            ...array_keys(TaskStatus::options()),
+            ...array_keys(ListFilter::options()),
+            'open',
+        ];
+
+        return in_array($status, $allowed, true);
+    }
+
+    private static function isValidTaskPriority(string $priority): bool
+    {
+        $allowed = [
+            ...array_keys(TaskPriority::options()),
+            'all',
+        ];
+
+        return in_array($priority, $allowed, true);
+    }
+
+    public function updatedPerPage($value): void
+    {
+        $this->resetPage('projectsPage');
+        $this->resetPage('tasksPage');
+        auth()->user()?->setPreference('per_page', (int) $value);
     }
 
     public function setTab(string $tab): void
     {
-        if (in_array($tab, ['projects', 'documents'])) {
+        if (in_array($tab, self::VALID_TABS, true)) {
             $this->currentTab = $tab;
+            $this->updatedCurrentTab();
         }
     }
 
-    public function updatedNewDocuments(): void
+    public function updatedCurrentTab(): void
     {
-        $this->validate([
-            'newDocuments.*' => 'required|file|max:20480', // 20MB limit
-        ]);
-
-        foreach ($this->newDocuments as $doc) {
-            $originalName = $doc->getClientOriginalName();
-            $mimeType = $doc->getMimeType();
-            $size = $doc->getSize();
-
-            $path = $doc->store('client-documents/'.$this->client->id, 'local');
-
-            ClientDocument::create([
-                'client_id' => $this->client->id,
-                'name' => $originalName,
-                'original_name' => $originalName,
-                'mime_type' => $mimeType,
-                'size' => $size,
-                'path' => $path,
-            ]);
-        }
-
-        $this->newDocuments = [];
-        $this->client->refresh();
-        Flux::toast('Document(s) uploaded successfully.', variant: 'success');
+        $this->resetInactiveTabFilters();
     }
 
-    public function viewDocument(string $id): void
+    private function resetInactiveTabFilters(): void
     {
-        $this->previewDocumentId = $id;
-        $this->showPreviewModal = true;
-    }
-
-    public function closePreviewModal(): void
-    {
-        $this->showPreviewModal = false;
-        $this->previewDocumentId = null;
-    }
-
-    public function confirmDelete(string $id): void
-    {
-        $this->deleteDocumentId = $id;
-        $this->showDeleteModal = true;
-    }
-
-    public function deleteDocument(): void
-    {
-        if (! $this->deleteDocumentId) {
-            return;
-        }
-
-        $document = ClientDocument::findOrFail($this->deleteDocumentId);
-
-        abort_if($document->client_id !== $this->client->id, 403);
-
-        if (Storage::disk('local')->exists($document->path)) {
-            Storage::disk('local')->delete($document->path);
-        }
-
-        $document->delete();
-
-        $this->showDeleteModal = false;
-        $this->deleteDocumentId = null;
-        $this->client->refresh();
-
-        Flux::toast('Document deleted successfully.', variant: 'success');
-    }
-
-    public function downloadDocument(string $id)
-    {
-        $document = ClientDocument::findOrFail($id);
-        abort_if($document->client_id !== $this->client->id, 403);
-
-        if (! Storage::disk('local')->exists($document->path)) {
-            Flux::toast('Document not found on server.', variant: 'danger');
+        if ($this->currentTab === 'projects') {
+            $this->resetTaskFilters();
 
             return;
         }
 
-        return Storage::disk('local')->download($document->path, $document->name);
+        if ($this->currentTab === 'tasks') {
+            $this->resetProjectFilters();
+
+            return;
+        }
+
+        $this->resetProjectFilters();
+        $this->resetTaskFilters();
     }
 
-    public function deleteClient(string $id)
+    private function resetProjectFilters(): void
     {
-        abort_if($this->client->id !== $id, 403);
-
-        $this->client->delete();
-
-        Flux::toast('Client moved to trash.', variant: 'success');
-
-        return $this->redirect(route('clients.index'), navigate: true);
+        $this->reset(self::PROJECT_RESET_PROPERTIES);
+        $this->resetPage('projectsPage');
     }
 
-    #[On('client-saved')]
+    private function resetTaskFilters(): void
+    {
+        $this->reset(self::TASK_RESET_PROPERTIES);
+        $this->resetPage('tasksPage');
+    }
+
+    public function afterClientAction(CrudAction $action, Client $client): void
+    {
+        if ($action === CrudAction::ForceDeleted && $this->client->id === $client->id) {
+            $this->redirect(route('clients.index'), navigate: true);
+
+            return;
+        }
+
+        if (in_array($action, [CrudAction::Deleted, CrudAction::Restored]) && $this->client->id === $client->id) {
+            $this->client->refresh();
+        }
+    }
+
+    #[On('clients.saved')]
     public function refreshClient(): void
     {
         $this->client->refresh();
         $this->dispatch('update-heading', $this->client->client_name);
     }
 
-    public function updatingProjectSearch(): void
+    #[On('tasks.saved')]
+    #[On('projects.saved')]
+    public function refreshLists(): void
     {
-        $this->resetPage();
+        // Re-render component
     }
 
-    public function updatingProjectStatusFilter(): void
+    public function updated(string $property): void
     {
-        $this->resetPage();
+        if (in_array($property, self::PROJECT_RESET_PROPERTIES, true)) {
+            $this->resetPage('projectsPage');
+        }
+
+        if (in_array($property, self::TASK_RESET_PROPERTIES, true)) {
+            $this->resetPage('tasksPage');
+        }
     }
 
-    public function updatingProjectSortBy(): void
+    public function resetFilters(): void
     {
-        $this->resetPage();
+        if ($this->currentTab === 'projects') {
+            $this->resetProjectFilters();
+        } elseif ($this->currentTab === 'tasks') {
+            $this->resetTaskFilters();
+        }
     }
 
-    public function updatingDocumentSearch(): void
+    protected function projectQuery(): Builder
     {
-        $this->resetPage();
+        $user = auth()->user();
+
+        return Project::query()
+            ->where('client_id', $this->client->id)
+            ->with([
+                'service:id,name',
+                'assignees:id,name',
+            ])
+            ->withCount([
+                'checklists as total_checklists',
+                'checklists as completed_checklists' => fn ($checklistQuery) => $checklistQuery->whereIn('status', ChecklistStatus::completionStatuses()),
+            ])
+            ->visibleTo($user);
     }
 
-    public function updatingDocumentSortBy(): void
+    #[Computed]
+    public function projects(): LengthAwarePaginator
     {
-        $this->resetPage();
+        $query = $this->projectQuery();
+
+        $query->search($this->projectSearch)
+            ->filterStatus($this->projectStatusFilter)
+            ->sorted(ProjectSort::tryFrom($this->projectSortBy) ?? ProjectSort::Latest);
+
+        return $query->paginate($this->perPage, ['*'], 'projectsPage');
     }
 
-    #[On('project-saved')]
-    public function render()
+    #[Computed]
+    public function projectStats(): array
+    {
+        return ProjectQueries::stats(
+            $this->client->projects()->withTrashed()->visibleTo(auth()->user())
+        );
+    }
+
+    #[Computed]
+    public function taskStats(): array
+    {
+        return TaskQueries::stats($this->taskQuery());
+    }
+
+    protected function taskQuery(): Builder
+    {
+        $user = auth()->user();
+
+        return Task::query()
+            ->where('client_id', $this->client->id)
+            ->with([
+                'assignees:id,name',
+                'project:id,project_name',
+            ])
+            ->where(fn ($q) => $q->whereNull('project_id')->orWhereHas('project'))
+            ->visibleTo($user);
+    }
+
+    #[Computed]
+    public function tasks(): LengthAwarePaginator
+    {
+        $query = $this->taskQuery();
+
+        $query->search($this->taskSearch)
+            ->filterStatus($this->taskStatusFilter)
+            ->when($this->taskPriorityFilter !== 'all', fn ($q) => $q->where('priority', $this->taskPriorityFilter))
+            ->sorted(TaskSort::tryFrom($this->taskSortBy) ?? TaskSort::Latest);
+
+        return $query->paginate($this->perPage, ['*'], 'tasksPage');
+    }
+
+    public function render(): View
     {
         return view('livewire.clients.show', [
-            'projects' => $this->client->projects()
-                ->when($this->projectSearch, function ($query) {
-                    $query->where('project_name', 'like', '%'.$this->projectSearch.'%');
-                })
-                ->when($this->projectStatusFilter !== 'all', function ($query) {
-                    $query->where('status', $this->projectStatusFilter);
-                })
-                ->when($this->projectSortBy === 'latest', fn ($query) => $query->latest())
-                ->when($this->projectSortBy === 'oldest', fn ($query) => $query->oldest())
-                ->when($this->projectSortBy === 'a_to_z', fn ($query) => $query->orderBy('project_name', 'asc'))
-                ->when($this->projectSortBy === 'z_to_a', fn ($query) => $query->orderBy('project_name', 'desc'))
-                ->paginate(10),
-            'documents' => $this->client->clientDocuments()
-                ->when($this->documentSearch, function ($query) {
-                    $query->where('name', 'like', '%'.$this->documentSearch.'%');
-                })
-                ->when($this->documentSortBy === 'latest', fn ($query) => $query->latest())
-                ->when($this->documentSortBy === 'oldest', fn ($query) => $query->oldest())
-                ->when($this->documentSortBy === 'a_to_z', fn ($query) => $query->orderBy('name', 'asc'))
-                ->when($this->documentSortBy === 'z_to_a', fn ($query) => $query->orderBy('name', 'desc'))
-                ->when($this->documentSortBy === 'largest', fn ($query) => $query->orderBy('size', 'desc'))
-                ->when($this->documentSortBy === 'smallest', fn ($query) => $query->orderBy('size', 'asc'))
-                ->get(),
+            'taskStatuses' => TaskStatus::cases(),
+            'taskPriorities' => TaskPriority::cases(),
         ])->layout('components.layouts.app');
     }
 }

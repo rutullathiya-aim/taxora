@@ -14,5 +14,7 @@
         @endif
 
         {{ $slot }}
+        
+        <livewire:global-confirm-modal />
     </flux:main>
 </x-layouts.app.sidebar>

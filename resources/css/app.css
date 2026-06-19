@@ -64,6 +64,24 @@ select:focus[data-flux-control] {
 
 @layer components {
 
+    /* ========== Breadcrumbs ========== */
+    [data-flux-breadcrumbs-item] a:hover {
+        @apply !text-accent transition-colors !no-underline transition-colors
+    }
+
+    /* ========== Links ========== */
+    [data-flux-link] {
+        @apply !text-zinc-800 !flex items-center gap-2 !no-underline w-fit text-sm transition-colors
+    }
+
+    .dark [data-flux-link] {
+        @apply !text-white
+    }
+
+    [data-flux-link]:hover {
+        @apply !text-accent
+    }
+
     /* ==========  Sidebar ========== */
     .sidebar-nav [data-flux-navlist-item] {
         @apply !h-9 !text-zinc-900 !px-1
@@ -145,11 +163,6 @@ select:focus[data-flux-control] {
         background-color: var(--color-accent) !important;
         border-color: var(--color-accent) !important;
         color: var(--color-accent-foreground) !important;
-    }
-
-    /* ========== Card ========== */
-    .dark [data-flux-card] {
-        @apply !bg-white/5 !border-transparent
     }
 
     /* ========== Tab ========== */
